@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #07070c;
+  --color-background: #0a0b0e;
   --color-foreground: oklch(0.985 0 0);
   --color-card: oklch(0.145 0 0);
   --color-card-foreground: oklch(0.985 0 0);
@@ -19,25 +19,25 @@
   --color-input: oklch(0.269 0 0);
   --color-ring: oklch(0.556 0 0);
 
-  /* Sui-native mint (NAVI palette) */
-  --color-mint-200: #a7f3da;
-  --color-mint-300: #6fefcb;
-  --color-mint-400: #34e8b5;
-  --color-mint-500: #1cc69a;
-  --color-mint-600: #14a37e;
+  /* Aftermath mint-green — primary accent (mapped onto the legacy `violet-*` names). */
+  --color-violet-200: #c5ffe6;
+  --color-violet-300: #8dffcc;
+  --color-violet-400: #5ef2ac;
+  --color-violet-500: #2bdf95;
+  --color-violet-600: #16b074;
 
-  /* Confidential violet — the "encrypted" accent */
-  --color-violet-300: #c4b5fd;
-  --color-violet-400: #a78bfa;
-  --color-violet-500: #8b5cf6;
-  --color-violet-600: #7c3aed;
+  /* Lighter mint — secondary accent (mapped onto the legacy `mint-*` names). */
+  --color-mint-200: #d8fff0;
+  --color-mint-300: #aaffdb;
+  --color-mint-400: #74f7c2;
+  --color-mint-500: #4fe8a8;
+  --color-mint-600: #2bcf90;
 
-  /* Sui blue */
   --color-sui-blue: #4da2ff;
 
-  /* Glow tints */
-  --color-glow-cool: rgba(80, 120, 255, 0.32);
-  --color-glow-warm: rgba(160, 90, 240, 0.28);
+  /* Glow tints — subtle green (so the glass frosts a hint of color over near-black). */
+  --color-glow-cool: rgba(95, 242, 172, 0.16);
+  --color-glow-warm: rgba(40, 215, 150, 0.1);
 
   --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, monospace;
@@ -67,79 +67,81 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-image:
-    radial-gradient(60rem 50rem at 18% 22%, var(--color-glow-cool), transparent 60%),
-    radial-gradient(55rem 45rem at 82% 78%, var(--color-glow-warm), transparent 60%);
+    radial-gradient(60rem 50rem at 18% 16%, var(--color-glow-cool), transparent 60%),
+    radial-gradient(55rem 45rem at 84% 84%, var(--color-glow-warm), transparent 62%);
   background-attachment: fixed;
 }
 
 @layer utilities {
   .glass-surface {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(20px) saturate(140%);
-    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    backdrop-filter: blur(30px) saturate(180%);
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
     box-shadow:
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
-      0 24px 60px -20px rgba(0, 0, 0, 0.6);
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.12),
+      0 28px 70px -20px rgba(0, 0, 0, 0.65);
   }
 
   .glass-surface-strong {
     background: linear-gradient(
       180deg,
-      rgba(255, 255, 255, 0.07) 0%,
-      rgba(255, 255, 255, 0.03) 100%
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0.04) 100%
     );
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(28px) saturate(160%);
-    -webkit-backdrop-filter: blur(28px) saturate(160%);
+    border: 1px solid rgba(95, 242, 172, 0.16);
+    backdrop-filter: blur(48px) saturate(200%);
+    -webkit-backdrop-filter: blur(48px) saturate(200%);
     box-shadow:
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.16),
       inset 0 -1px 0 0 rgba(0, 0, 0, 0.4),
-      0 40px 100px -28px rgba(0, 0, 0, 0.7);
+      0 48px 120px -28px rgba(0, 0, 0, 0.75);
   }
 
   .glass-pill {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(14px) saturate(140%);
-    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
   }
 
-  .tactile-mint {
-    background: linear-gradient(180deg, #4ff2c5 0%, #1cc69a 100%);
-    color: #042018;
+  /* Primary action — Aftermath mint-green, dark text. */
+  .tactile-violet {
+    background: linear-gradient(180deg, #7afdc8 0%, #41e69e 100%);
+    color: #03251a;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.5),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.25),
-      0 12px 28px -8px rgba(28, 198, 154, 0.55),
-      0 2px 6px rgba(0, 0, 0, 0.3);
-  }
-
-  .tactile-mint:hover:not(:disabled) {
-    background: linear-gradient(180deg, #6fffd2 0%, #2cd6a8 100%);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.6),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.25),
-      0 16px 36px -8px rgba(28, 198, 154, 0.65),
-      0 2px 6px rgba(0, 0, 0, 0.3);
-  }
-
-  .tactile-violet {
-    background: linear-gradient(180deg, #a78bfa 0%, #7c3aed 100%);
-    color: #f5f3ff;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.35),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.25),
-      0 12px 28px -8px rgba(124, 58, 237, 0.55),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+      0 12px 30px -8px rgba(65, 230, 158, 0.5),
       0 2px 6px rgba(0, 0, 0, 0.3);
   }
 
   .tactile-violet:hover:not(:disabled) {
-    background: linear-gradient(180deg, #b9a3fc 0%, #8b5cf6 100%);
+    background: linear-gradient(180deg, #93ffd6 0%, #54eeac 100%);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.45),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.25),
-      0 16px 36px -8px rgba(124, 58, 237, 0.65),
+      inset 0 1px 0 rgba(255, 255, 255, 0.6),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+      0 16px 38px -8px rgba(65, 230, 158, 0.65),
+      0 2px 6px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Secondary action — lighter mint. */
+  .tactile-mint {
+    background: linear-gradient(180deg, #aefada 0%, #54e3a6 100%);
+    color: #042018;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.55),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+      0 12px 28px -8px rgba(79, 232, 168, 0.5),
+      0 2px 6px rgba(0, 0, 0, 0.3);
+  }
+
+  .tactile-mint:hover:not(:disabled) {
+    background: linear-gradient(180deg, #c7ffe8 0%, #6cebb8 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.6),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+      0 16px 36px -8px rgba(79, 232, 168, 0.6),
       0 2px 6px rgba(0, 0, 0, 0.3);
   }
 
@@ -154,7 +156,7 @@ body {
 
   .tactile-glass:hover:not(:disabled) {
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.05) 100%);
-    border-color: rgba(255, 255, 255, 0.18);
+    border-color: rgba(141, 255, 204, 0.22);
   }
 
   .numeric-display {
@@ -163,15 +165,16 @@ body {
     letter-spacing: -0.02em;
   }
 
-  .mint-text {
-    background: linear-gradient(135deg, #6fefcb, #1cc69a);
+  /* Primary accent text — mint-green gradient. */
+  .violet-text {
+    background: linear-gradient(135deg, #c5ffe6, #2bdf95);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
 
-  .violet-text {
-    background: linear-gradient(135deg, #c4b5fd, #8b5cf6);
+  .mint-text {
+    background: linear-gradient(135deg, #d8fff0, #4fe8a8);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -181,21 +184,20 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.06);
   }
 
-  /* Encrypted ciphertext rendering — monospace, faintly glowing violet */
+  /* Encrypted ciphertext rendering — monospace, faintly glowing mint. */
   .cipher-mono {
     font-family: var(--font-mono);
     letter-spacing: 0.04em;
     word-break: break-all;
-    color: rgba(196, 181, 253, 0.55);
+    color: rgba(141, 255, 204, 0.5);
   }
 
-  /* Shimmer over encrypted blocks to signal "live ciphertext" */
   .cipher-shimmer {
     background: linear-gradient(
       100deg,
-      rgba(139, 92, 246, 0.08) 0%,
-      rgba(139, 92, 246, 0.16) 40%,
-      rgba(139, 92, 246, 0.08) 80%
+      rgba(95, 242, 172, 0.07) 0%,
+      rgba(95, 242, 172, 0.16) 40%,
+      rgba(95, 242, 172, 0.07) 80%
     );
     background-size: 200% 100%;
     animation: cipher-pan 6s linear infinite;

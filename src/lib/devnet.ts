@@ -3,11 +3,11 @@ import { getFaucetHost, requestSuiFromFaucetV2 } from "@mysten/sui/faucet";
 export const SUI_COIN_TYPE = "0x2::sui::SUI";
 
 export function explorerTx(digest: string): string {
-  return `https://suiscan.xyz/devnet/tx/${digest}`;
+  return `https://devnet.suivision.xyz/txblock/${digest}`;
 }
 
 export function explorerAddr(address: string): string {
-  return `https://suiscan.xyz/devnet/account/${address}`;
+  return `https://devnet.suivision.xyz/account/${address}`;
 }
 
 /** Claim devnet SUI from the official faucet for the given address. */

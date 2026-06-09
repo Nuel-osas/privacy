@@ -7,6 +7,7 @@ import {
   Send,
   ShieldCheck,
   Sparkles,
+  Wallet,
 } from "lucide-react";
 import { GlassButton } from "../components/ui/glass-button";
 import { GlassCard } from "../components/ui/glass-card";
@@ -23,7 +24,7 @@ export function Landing({ onLaunch }: { onLaunch: () => void }) {
             Confidential transfers · Sui devnet
           </div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight leading-[1.05] mb-4 md:mb-5">
-            Save and send
+            Send &amp; receive
             <br />
             <span className="violet-text">without revealing amounts.</span>
           </h1>
@@ -57,6 +58,21 @@ export function Landing({ onLaunch }: { onLaunch: () => void }) {
         ))}
       </div>
 
+      {/* How it works */}
+      <div className="mt-12 md:mt-20">
+        <div className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-5 text-center">
+          How it works
+        </div>
+        <div className="grid sm:grid-cols-3 gap-3">
+          {STEPS.map((s, i) => (
+            <HowStep key={s.title} index={i + 1} {...s} />
+          ))}
+        </div>
+        <p className="mt-4 text-center text-[11px] text-white/30 font-mono">
+          Amounts are encrypted on-chain. Sender &amp; receiver are public; the value is not.
+        </p>
+      </div>
+
       <div className="mt-14 flex flex-wrap items-center justify-between gap-4 text-[11px] text-white/40 font-mono px-1">
         <span className="flex items-center gap-2">
           <SuiIcon className="h-4 w-4" />
@@ -77,18 +93,18 @@ const FEATURES: FeatureData[] = [
   },
   {
     icon: <KeyRound className="h-4 w-4" />,
-    title: "Owner-only decrypt",
-    desc: "Encrypted under your viewing key. Only you (or an authorized auditor) can read amounts.",
+    title: "Owner-only",
+    desc: "Encrypted under your wallet-derived viewing key — only you can read it, the same on every device.",
   },
   {
     icon: <ShieldCheck className="h-4 w-4" />,
-    title: "Compliant by design",
-    desc: "Optional auditor key + zero-knowledge selective disclosure. Private, not a black box.",
+    title: "Proofs in your browser",
+    desc: "Zero-knowledge range proofs are generated locally (WASM). Your key never leaves your device.",
   },
   {
     icon: <Send className="h-4 w-4" />,
     title: "Confidential send",
-    desc: "Send any amount account-to-account. The value is encrypted to the recipient's key — only they can read it.",
+    desc: "Send any amount to another account. The amount is hidden on-chain; only the recipient decrypts it.",
   },
 ];
 
@@ -97,6 +113,40 @@ function Feature({ icon, title, desc }: FeatureData) {
     <GlassCard variant="strong" className="p-6">
       <div className="h-8 w-8 rounded-xl glass-pill flex items-center justify-center text-violet-300 mb-4">
         {icon}
+      </div>
+      <div className="text-sm font-medium mb-1.5">{title}</div>
+      <div className="text-xs text-white/50 leading-relaxed">{desc}</div>
+    </GlassCard>
+  );
+}
+
+type StepData = { icon: React.ReactNode; title: string; desc: string };
+const STEPS: StepData[] = [
+  {
+    icon: <Wallet className="h-4 w-4" />,
+    title: "Connect & unlock",
+    desc: "Connect your wallet and sign once — your viewing key is derived from that signature (same on every device, nothing stored on a server).",
+  },
+  {
+    icon: <Sparkles className="h-4 w-4" />,
+    title: "Mint + wrap",
+    desc: "Move tokens into your encrypted balance. From here the amount you hold is hidden on-chain.",
+  },
+  {
+    icon: <Send className="h-4 w-4" />,
+    title: "Send confidentially",
+    desc: "Send to anyone with a confidential account. Only the recipient can decrypt how much they received.",
+  },
+];
+
+function HowStep({ index, icon, title, desc }: StepData & { index: number }) {
+  return (
+    <GlassCard variant="strong" className="p-6">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="h-7 w-7 rounded-lg tactile-violet flex items-center justify-center text-xs font-semibold">
+          {index}
+        </div>
+        <span className="text-violet-300">{icon}</span>
       </div>
       <div className="text-sm font-medium mb-1.5">{title}</div>
       <div className="text-xs text-white/50 leading-relaxed">{desc}</div>
