@@ -1,0 +1,16 @@
+# dependencies
+node_modules/
+
+# build output
+/dist/
+**/build/
+*.tsbuildinfo
+
+# Mysten "Contra" confidential-transfers source — third-party dependency.
+# Clone it locally to build/deploy: see README. Not committed here.
+/contra/
+
+# misc
+.DS_Store
+*.log
+.env*

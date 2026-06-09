@@ -1,0 +1,9 @@
+[package]
+name = "confidential_launchpad"
+edition = "2024"
+
+[environments]
+devnet = "043d64c6"
+
+[dependencies]
+contra = { local = "../contra/move" }

@@ -1,0 +1,11 @@
+[package]
+name = "contra_vault"
+edition = "2024"
+
+# Pin to the exact Contra commit you build against — the package is unaudited
+# WIP and its public API is still in flux.
+[environments]
+devnet = "4fe43958"
+
+[dependencies]
+contra = { git = "https://github.com/MystenLabs/confidential-transfers.git", rev = "main", subdir = "move" }

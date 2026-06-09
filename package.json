@@ -1,0 +1,39 @@
+{
+  "name": "vestlock-private",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Confidential vaults & payments on Sui — real Twisted ElGamal over Ristretto255 (the scheme behind Sui confidential transfers)",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "crypto:test": "node scripts/crypto-test.mjs"
+  },
+  "dependencies": {
+    "@contra/bulletproofs-wasm": "link:contra/utils/bulletproofs-wasm",
+    "@mysten/dapp-kit-react": "^2.0.3",
+    "@mysten/sui": "^2.16.2",
+    "@nanostores/react": "^1.0.0",
+    "@noble/curves": "1.6.0",
+    "@noble/hashes": "1.5.0",
+    "@tanstack/react-query": "^5.90.16",
+    "clsx": "^2.1.1",
+    "contra-utils": "link:contra/utils/ts-utils",
+    "lucide-react": "^0.562.0",
+    "nanostores": "^1.0.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "tailwind-merge": "^3.4.0",
+    "ts-sdk": "link:contra/ts-sdk"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/react": "^19.2.8",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react-swc": "^4.2.2",
+    "tailwindcss": "^4.1.18",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.5"
+  }
+}
