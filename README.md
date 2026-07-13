@@ -13,15 +13,15 @@ block explorer.
 
 | | Address |
 |---|---|
-| Launchpad package | `0x4f762554fd3493eab883a6aa372328206ed0991a0ded910f48cd0e8553658010` |
-| Contra package | `0xa53010ace79c4202c2970cf890f58d1d7745495d45bac96d365a863e9726488d` |
-| Open confidential token `ConfidentialToken<BU>` | `0xef276ec5b7aa4c97f128a2bd2db3e956fc2d595998bef5a4a6c8a48fdba714e0` |
+| Launchpad package | `0x82bf0fe649414351fb890e9f5976463fbd1e3e0ed6fc84a41d0cb23c2eac3031` |
+| Contra package | `0x4c86127b0f6a232c0e14bf38d307955e8c3a414cac456f922ccd61ec2872fd2b` |
+| Open confidential token `ConfidentialToken<BU>` | `0x26e92c33a28be31d883a0b1adde6339c7940259bb9deb81a4dbf87e0bc586537` |
 
 All IDs live in `src/lib/contracts.ts`. **Devnet resets periodically** — if the IDs
 stop resolving, redeploy (see below) and paste the new IDs in.
 
 A real confidential transfer (amount hidden on-chain), on SuiVision:
-https://devnet.suivision.xyz/txblock/4KM9bMDkVr62XeMnnNcsvzbLTVc3tsDSJ8DeZxPEp6bT
+https://devnet.suivision.xyz/txblock/47Ln2oB7tDaFvUrtLGGvSqDF6KAJiDPxvD356fmWmuuK
 
 ## Run
 

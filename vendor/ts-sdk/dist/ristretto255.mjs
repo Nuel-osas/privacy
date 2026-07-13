@@ -21,6 +21,8 @@ const H = ristretto255_hasher.deriveToCurve(sha512(new TextEncoder().encode("fas
 H.precompute(8);
 /** The ristretto255 identity (zero) point. */
 const ZERO = ristretto255.Point.ZERO;
+/** The order of the ristretto255 scalar field. */
+const GROUP_ORDER = ristretto255.Point.Fn.ORDER;
 /**
 * Constant-time scalar multiplication `scalar * point` that accepts `0`.
 * Leaks information in case of 0 input.
@@ -74,4 +76,4 @@ function scalarToBytes(s) {
 	return Fn.toBytes(s);
 }
 //#endregion
-export { G, H, ZERO, addScalars, assertNonZeroScalar, mul, mulUnsafe, pointFromBcs, randomScalar, scalarToBytes };
+export { G, GROUP_ORDER, H, ZERO, addScalars, assertNonZeroScalar, mul, mulUnsafe, pointFromBcs, randomScalar, scalarToBytes };

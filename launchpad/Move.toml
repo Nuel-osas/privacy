@@ -3,7 +3,7 @@ name = "confidential_launchpad"
 edition = "2024"
 
 [environments]
-devnet = "043d64c6"
+devnet = "3b6f3fa4"
 
 [dependencies]
 contra = { local = "../contra/move" }

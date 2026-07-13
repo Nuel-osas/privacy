@@ -23,24 +23,34 @@ function cosetX(point) {
 	const invertedZs = Fp.invertBatch(shifted.map((s) => s.Z));
 	return shifted.map((s, k) => Fp.mul(s.X, invertedZs[k]));
 }
+/** Key used for indexing the discrete-log table computed from the x-coordinate of the point. */
+function key(x) {
+	return Number(x & 4294967295n);
+}
 /**
-* Compute the raw table entries (truncated x-coordinate → index pairs)
-* for a given numBits. This is a pure function that can run in a web
-* worker. Returns a flat Uint32Array of [key, value, key, value, ...]
-* pairs that can be transferred to the main thread.
+* Compute the raw table entries (truncated x-coordinates) for a given
+* numBits. This is a pure function that can run in a web worker. Returns
+* a Uint32Array where `entries[i]` is the truncated x-coordinate of `i*H`.
+* The result can be transferred to the main thread.
 */
 function computeTableEntries(numBits) {
 	performance.now();
 	const tableSize = 2 ** numBits;
-	const points = new Array(tableSize);
-	points[0] = ZERO;
-	for (let i = 1; i < tableSize; i++) points[i] = points[i - 1].add(H);
-	const invertedZs = Fp.invertBatch(points.map((p) => p.ep.Z));
-	const xCoords = points.map((p, i) => Fp.mul(p.ep.X, invertedZs[i]));
-	const entries = new Uint32Array(tableSize * 2);
-	for (let i = 0; i < tableSize; i++) {
-		entries[i * 2] = Number(xCoords[i] & 4294967295n);
-		entries[i * 2 + 1] = i;
+	const entries = new Uint32Array(tableSize);
+	const CHUNK = 4096;
+	const xs = new Array(CHUNK);
+	const zs = new Array(CHUNK);
+	let point = ZERO;
+	for (let base = 0; base < tableSize; base += CHUNK) {
+		const len = Math.min(CHUNK, tableSize - base);
+		for (let k = 0; k < len; k++) {
+			const ep = point.ep;
+			xs[k] = ep.X;
+			zs[k] = ep.Z;
+			point = point.add(H);
+		}
+		const invertedZs = Fp.invertBatch(len === CHUNK ? zs : zs.slice(0, len));
+		for (let k = 0; k < len; k++) entries[base + k] = key(Fp.mul(xs[k], invertedZs[k]));
 	}
 	return entries;
 }
@@ -48,6 +58,10 @@ function computeTableEntries(numBits) {
 * Precomputed discrete-log table for ristretto255. Stores sequential
 * multiples of H keyed by truncated 4-byte Edwards x-coordinates,
 * with verification by scalar multiplication to guard against collisions.
+*
+* The table is held as two parallel, key-sorted `Uint32Array`s — `#keys`
+* (the truncated x-coordinates, ascending) and `#values` (the matching
+* baby-step index `i` such that `i*H` has that key).
 *
 * Decrypt searches by subtracting `2^numBits * H` (the giant step)
 * each iteration and checking the table. Small values (the common
@@ -59,38 +73,49 @@ function computeTableEntries(numBits) {
 * is 512 KiB and `numBits = 24` is 128 MiB.
 */
 var DiscreteLogTable = class DiscreteLogTable {
-	#table;
+	#keys;
+	#values;
 	static {
 		this.MAX_CACHE_SIZE = 1024;
 	}
 	#cache;
-	constructor(numBits, table) {
+	constructor(numBits, keys, values) {
 		this.numBits = numBits;
 		this.tableSize = 2 ** numBits;
 		this.giantStep = mul(H, BigInt(this.tableSize));
-		this.#table = table;
+		this.#keys = keys;
+		this.#values = values;
 		this.#cache = /* @__PURE__ */ new Map();
 	}
 	/** Compute the table synchronously (convenience for tests / Node). */
 	static create(numBits = 16) {
 		if (numBits > 32) throw new InvalidArgumentError(`numBits must be <= 32 (got ${numBits})`);
-		const entries = computeTableEntries(numBits);
-		return DiscreteLogTable.fromEntries(numBits, entries);
+		return DiscreteLogTable.fromEntries(numBits, computeTableEntries(numBits));
 	}
-	/** Construct from pre-computed entries (e.g. from a web worker). */
+	/**
+	* Construct from pre-computed entries (e.g. from a web worker), where
+	* `entries[i]` is the truncated x-coordinate of `i*H`. Sorts the baby-step
+	* indices by their key into the parallel `#keys` / `#values` arrays.
+	*/
 	static fromEntries(numBits, entries) {
-		const table = /* @__PURE__ */ new Map();
-		let collisions = 0;
-		for (let i = 0; i < entries.length; i += 2) {
-			const key = entries[i];
-			const value = entries[i + 1];
-			const existing = table.get(key);
-			if (existing) {
-				existing.push(value);
-				collisions++;
-			} else table.set(key, [value]);
+		const n = entries.length;
+		const values = new Uint32Array(n);
+		for (let i = 0; i < n; i++) values[i] = i;
+		values.sort((a, b) => entries[a] - entries[b]);
+		const keys = new Uint32Array(n);
+		for (let j = 0; j < n; j++) keys[j] = entries[values[j]];
+		return new DiscreteLogTable(numBits, keys, values);
+	}
+	/** Index of the first entry in `#keys` whose key is `>= target`. */
+	#lowerBound(target) {
+		let lo = 0;
+		let hi = this.#keys.length;
+		while (lo < hi) {
+			const mid = lo + hi >>> 1;
+			if (this.#keys[mid] < target) lo = mid + 1;
+			else hi = mid;
 		}
-		return new DiscreteLogTable(numBits, table);
+		return lo;
 	}
 	/**
 	* Look up a point in the cache or precomputed table. Returns the
@@ -98,25 +123,24 @@ var DiscreteLogTable = class DiscreteLogTable {
 	* The caller adds the giant-step offset.
 	*/
 	lookup(point) {
-		const cacheKey = Number(point.x & 4294967295n);
+		const cacheKey = key(point.x);
 		const cached = this.#cache.get(cacheKey);
 		if (cached !== void 0 && mulUnsafe(H, cached).equals(point)) return {
 			value: cached,
 			cached: true
 		};
 		for (const x of cosetX(point)) {
-			const candidates = this.#table.get(Number(x & 4294967295n));
-			if (candidates === void 0) continue;
-			for (const babyStepIndex of candidates) {
-				const result = BigInt(babyStepIndex);
-				if (mulUnsafe(H, result).equals(point)) {
+			const target = key(x);
+			for (let j = this.#lowerBound(target); j < this.#keys.length && this.#keys[j] === target; j++) {
+				const value = BigInt(this.#values[j]);
+				if (mulUnsafe(H, value).equals(point)) {
 					if (this.#cache.size >= DiscreteLogTable.MAX_CACHE_SIZE) {
 						const oldest = this.#cache.keys().next().value;
 						if (oldest !== void 0) this.#cache.delete(oldest);
 					}
-					this.#cache.set(cacheKey, result);
+					this.#cache.set(cacheKey, value);
 					return {
-						value: result,
+						value,
 						cached: false
 					};
 				}
@@ -124,6 +148,23 @@ var DiscreteLogTable = class DiscreteLogTable {
 		}
 	}
 };
+/**
+* Baby-step giant-step search for the `m` with `point = m*H`, over `table`:
+* subtract the giant step each iteration until a baby-step entry matches. Small
+* values (the common case for u16 limbs) are found on the first lookup with no
+* subtraction. Throws {@link DecryptionFailedError} if `m` is outside the table's
+* `2^(2 * numBits)` range.
+*/
+function solveBsgs(point, table) {
+	performance.now();
+	const tableSize = BigInt(table.tableSize);
+	for (let g = 0n; g < tableSize; g++) {
+		const hit = table.lookup(point);
+		if (hit !== void 0) return g * tableSize + hit.value;
+		point = point.subtract(table.giantStep);
+	}
+	throw new DecryptionFailedError(table.numBits);
+}
 /**
 * A twisted ElGamal encryption — `ciphertext = r*G + m*H` and
 * `decryptionHandle = r*pk` — of a u16 value (decryptable up to ~2^32).
@@ -148,12 +189,10 @@ var Ciphertext = class Ciphertext {
 		return Ciphertext.encryptWithBlinding(pk, value, blinding);
 	}
 	/**
-	* Encrypt a value under `pk` and generate an ElGamal consistency proof.
-	* `blinding` defaults to a fresh random scalar; pass it explicitly to
-	* re-key an existing amount while keeping the same per-limb commitment.
+	* Encrypt a value under `pk` with the given `blinding` and generate an ElGamal
+	* consistency proof.
 	*/
-	static encryptWithConsistencyProof(dst, pk, value) {
-		const blinding = randomScalar();
+	static encryptWithConsistencyProof(dst, pk, value, blinding) {
 		const { ciphertext } = Ciphertext.encryptWithBlinding(pk, value, blinding);
 		return {
 			ciphertext,
@@ -224,16 +263,14 @@ var Ciphertext = class Ciphertext {
 	* under the same key invert once and reuse the result.
 	*/
 	decryptWithInverse(privateKeyInverse, table) {
-		performance.now();
-		const c = this.ciphertext.subtract(mul(this.decryptionHandle, privateKeyInverse));
-		const tableSize = BigInt(table.tableSize);
-		let point = c;
-		for (let g = 0n; g < tableSize; g++) {
-			const hit = table.lookup(point);
-			if (hit !== void 0) return g * tableSize + hit.value;
-			point = point.subtract(table.giantStep);
-		}
-		throw new DecryptionFailedError(table.numBits);
+		return solveBsgs(this.ciphertext.subtract(mul(this.decryptionHandle, privateKeyInverse)), table);
+	}
+	/**
+	* Recover the plaintext from the commitment alone, given the blinding `r`
+	* used to form it.
+	*/
+	decryptWithBlinding(blinding, table) {
+		return solveBsgs(this.ciphertext.subtract(mul(G, blinding)), table);
 	}
 };
 /**
@@ -281,6 +318,17 @@ var EncryptedAmount = class EncryptedAmount {
 		const d1 = this.l1.decryptWithInverse(inv, table);
 		const d2 = this.l2.decryptWithInverse(inv, table);
 		const d3 = this.l3.decryptWithInverse(inv, table);
+		return d0 + (d1 << 16n) + (d2 << 32n) + (d3 << 48n);
+	}
+	/**
+	* Recover the plaintext from the limb commitments alone, given the per-limb
+	* blindings.
+	*/
+	decryptWithBlindings(blindingForLimb, table) {
+		const d0 = this.l0.decryptWithBlinding(blindingForLimb(0), table);
+		const d1 = this.l1.decryptWithBlinding(blindingForLimb(1), table);
+		const d2 = this.l2.decryptWithBlinding(blindingForLimb(2), table);
+		const d3 = this.l3.decryptWithBlinding(blindingForLimb(3), table);
 		return d0 + (d1 << 16n) + (d2 << 32n) + (d3 << 48n);
 	}
 };

@@ -91,56 +91,12 @@ declare const TransferEvent: MoveStruct<{
       length: number;
     }, string>;
   }, "0x2::group_ops::Element<phantom T>">;
-  encrypted_amount_sender: MoveStruct<{
-    l0: MoveStruct<{
-      ciphertext: MoveStruct<{
-        bytes: _$_mysten_sui_bcs0.BcsType<number[], Iterable<number> & {
-          length: number;
-        }, string>;
-      }, "0x2::group_ops::Element<phantom T>">;
-      decryption_handle: MoveStruct<{
-        bytes: _$_mysten_sui_bcs0.BcsType<number[], Iterable<number> & {
-          length: number;
-        }, string>;
-      }, "0x2::group_ops::Element<phantom T>">;
-    }, "@local-pkg/contra::twisted_elgamal::Encryption">;
-    l1: MoveStruct<{
-      ciphertext: MoveStruct<{
-        bytes: _$_mysten_sui_bcs0.BcsType<number[], Iterable<number> & {
-          length: number;
-        }, string>;
-      }, "0x2::group_ops::Element<phantom T>">;
-      decryption_handle: MoveStruct<{
-        bytes: _$_mysten_sui_bcs0.BcsType<number[], Iterable<number> & {
-          length: number;
-        }, string>;
-      }, "0x2::group_ops::Element<phantom T>">;
-    }, "@local-pkg/contra::twisted_elgamal::Encryption">;
-    l2: MoveStruct<{
-      ciphertext: MoveStruct<{
-        bytes: _$_mysten_sui_bcs0.BcsType<number[], Iterable<number> & {
-          length: number;
-        }, string>;
-      }, "0x2::group_ops::Element<phantom T>">;
-      decryption_handle: MoveStruct<{
-        bytes: _$_mysten_sui_bcs0.BcsType<number[], Iterable<number> & {
-          length: number;
-        }, string>;
-      }, "0x2::group_ops::Element<phantom T>">;
-    }, "@local-pkg/contra::twisted_elgamal::Encryption">;
-    l3: MoveStruct<{
-      ciphertext: MoveStruct<{
-        bytes: _$_mysten_sui_bcs0.BcsType<number[], Iterable<number> & {
-          length: number;
-        }, string>;
-      }, "0x2::group_ops::Element<phantom T>">;
-      decryption_handle: MoveStruct<{
-        bytes: _$_mysten_sui_bcs0.BcsType<number[], Iterable<number> & {
-          length: number;
-        }, string>;
-      }, "0x2::group_ops::Element<phantom T>">;
-    }, "@local-pkg/contra::twisted_elgamal::Encryption">;
-  }, "@local-pkg/contra::encrypted_amount::EncryptedAmount">;
+  seed_point: MoveStruct<{
+    bytes: _$_mysten_sui_bcs0.BcsType<number[], Iterable<number> & {
+      length: number;
+    }, string>;
+  }, "0x2::group_ops::Element<phantom T>">;
+  batch_index: _$_mysten_sui_bcs0.BcsType<number, number, "u8">;
   receiver: _$_mysten_sui_bcs0.BcsType<string, string | Uint8Array<ArrayBufferLike>, "bytes[32]">;
   receiver_pk: MoveStruct<{
     bytes: _$_mysten_sui_bcs0.BcsType<number[], Iterable<number> & {

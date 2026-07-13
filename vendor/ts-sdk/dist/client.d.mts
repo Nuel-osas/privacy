@@ -417,7 +417,7 @@ declare class ContraClient {
    * ```
    *
    * SDK-thrown:
-   * - `InvalidArgumentError` — `recipients` is empty, has more than 7 entries, or
+   * - `InvalidArgumentError` — `recipients` is empty, has more than 255 entries, or
    *   contains the sender's own address.
    * - `ReceiverDoesNotAcceptDepositsError` — at least one receiver has paused encrypted
    *   deposits or has a per-account freeze active.
@@ -465,7 +465,7 @@ declare class ContraClient {
    * ```
    *
    * SDK-thrown:
-   * - `InvalidArgumentError` — `recipients` is empty, has more than 7 entries, or contains the
+   * - `InvalidArgumentError` — `recipients` is empty, has more than 255 entries, or contains the
    *   sender's own address.
    * - `ReceiverDoesNotAcceptDepositsError` — at least one receiver has paused encrypted deposits
    *   or has a per-account freeze active.

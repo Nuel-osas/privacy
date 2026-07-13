@@ -36,18 +36,20 @@ export class RangeProofResult {
  *
  * `values.len()` must be a power of 2 and equal to `blindings.len() / 32`;
  * `blindings` is `32 * values.len()` bytes, each a canonical ristretto255
- * scalar.
+ * scalar. `dst` is the domain-separation tag bound into the proof transcript;
+ * the verifier must supply the same tag.
  */
-export function batchRangeProof(values: BigUint64Array, blindings: Uint8Array, bit_size: number): BatchRangeProofResult;
+export function batchRangeProof(values: BigUint64Array, blindings: Uint8Array, bit_size: number, dst: Uint8Array): BatchRangeProofResult;
 
 /**
  * Prove `value ∈ [0, 2^bit_size)` using fastcrypto's `RangeProof::prove`.
  *
  * `bit_size` must be one of 8, 16, 32, 64. `blinding` is a 32-byte canonical
- * ristretto255 scalar. Returns the serialized proof and the 32-byte
- * Pedersen commitment.
+ * ristretto255 scalar. `dst` is the domain-separation tag bound into the proof
+ * transcript; the verifier must supply the same tag. Returns the serialized
+ * proof and the 32-byte Pedersen commitment.
  */
-export function rangeProof(value: bigint, blinding: Uint8Array, bit_size: number): RangeProofResult;
+export function rangeProof(value: bigint, blinding: Uint8Array, bit_size: number, dst: Uint8Array): RangeProofResult;
 
 /**
  * Verify an aggregate range proof that every commitment encodes a value in
@@ -55,13 +57,14 @@ export function rangeProof(value: bigint, blinding: Uint8Array, bit_size: number
  *
  * `commitments` is a flat buffer of 32-byte ristretto255 points concatenated
  * in the same order the proof was generated with. The number of commitments
- * must be a power of 2 and equal to the one used when proving.
+ * must be a power of 2 and equal to the one used when proving. `dst` must match
+ * the tag used when proving.
  */
-export function verifyBatchRangeProof(proof: Uint8Array, commitments: Uint8Array, bit_size: number): boolean;
+export function verifyBatchRangeProof(proof: Uint8Array, commitments: Uint8Array, bit_size: number, dst: Uint8Array): boolean;
 
 /**
  * Verify a fastcrypto range proof that the value committed in `commitment`
- * lies in `[0, 2^bit_size)`. Returns `true` if the proof verifies, `false`
- * otherwise.
+ * lies in `[0, 2^bit_size)`. `dst` must match the tag used when proving.
+ * Returns `true` if the proof verifies, `false` otherwise.
  */
-export function verifyRangeProof(proof: Uint8Array, commitment: Uint8Array, bit_size: number): boolean;
+export function verifyRangeProof(proof: Uint8Array, commitment: Uint8Array, bit_size: number, dst: Uint8Array): boolean;

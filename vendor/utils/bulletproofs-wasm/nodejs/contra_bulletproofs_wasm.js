@@ -95,18 +95,22 @@ exports.RangeProofResult = RangeProofResult;
  *
  * `values.len()` must be a power of 2 and equal to `blindings.len() / 32`;
  * `blindings` is `32 * values.len()` bytes, each a canonical ristretto255
- * scalar.
+ * scalar. `dst` is the domain-separation tag bound into the proof transcript;
+ * the verifier must supply the same tag.
  * @param {BigUint64Array} values
  * @param {Uint8Array} blindings
  * @param {number} bit_size
+ * @param {Uint8Array} dst
  * @returns {BatchRangeProofResult}
  */
-function batchRangeProof(values, blindings, bit_size) {
+function batchRangeProof(values, blindings, bit_size, dst) {
     const ptr0 = passArray64ToWasm0(values, wasm.__wbindgen_malloc);
     const len0 = WASM_VECTOR_LEN;
     const ptr1 = passArray8ToWasm0(blindings, wasm.__wbindgen_malloc);
     const len1 = WASM_VECTOR_LEN;
-    const ret = wasm.batchRangeProof(ptr0, len0, ptr1, len1, bit_size);
+    const ptr2 = passArray8ToWasm0(dst, wasm.__wbindgen_malloc);
+    const len2 = WASM_VECTOR_LEN;
+    const ret = wasm.batchRangeProof(ptr0, len0, ptr1, len1, bit_size, ptr2, len2);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -118,17 +122,21 @@ exports.batchRangeProof = batchRangeProof;
  * Prove `value ∈ [0, 2^bit_size)` using fastcrypto's `RangeProof::prove`.
  *
  * `bit_size` must be one of 8, 16, 32, 64. `blinding` is a 32-byte canonical
- * ristretto255 scalar. Returns the serialized proof and the 32-byte
- * Pedersen commitment.
+ * ristretto255 scalar. `dst` is the domain-separation tag bound into the proof
+ * transcript; the verifier must supply the same tag. Returns the serialized
+ * proof and the 32-byte Pedersen commitment.
  * @param {bigint} value
  * @param {Uint8Array} blinding
  * @param {number} bit_size
+ * @param {Uint8Array} dst
  * @returns {RangeProofResult}
  */
-function rangeProof(value, blinding, bit_size) {
+function rangeProof(value, blinding, bit_size, dst) {
     const ptr0 = passArray8ToWasm0(blinding, wasm.__wbindgen_malloc);
     const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.rangeProof(value, ptr0, len0, bit_size);
+    const ptr1 = passArray8ToWasm0(dst, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.rangeProof(value, ptr0, len0, bit_size, ptr1, len1);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -142,18 +150,22 @@ exports.rangeProof = rangeProof;
  *
  * `commitments` is a flat buffer of 32-byte ristretto255 points concatenated
  * in the same order the proof was generated with. The number of commitments
- * must be a power of 2 and equal to the one used when proving.
+ * must be a power of 2 and equal to the one used when proving. `dst` must match
+ * the tag used when proving.
  * @param {Uint8Array} proof
  * @param {Uint8Array} commitments
  * @param {number} bit_size
+ * @param {Uint8Array} dst
  * @returns {boolean}
  */
-function verifyBatchRangeProof(proof, commitments, bit_size) {
+function verifyBatchRangeProof(proof, commitments, bit_size, dst) {
     const ptr0 = passArray8ToWasm0(proof, wasm.__wbindgen_malloc);
     const len0 = WASM_VECTOR_LEN;
     const ptr1 = passArray8ToWasm0(commitments, wasm.__wbindgen_malloc);
     const len1 = WASM_VECTOR_LEN;
-    const ret = wasm.verifyBatchRangeProof(ptr0, len0, ptr1, len1, bit_size);
+    const ptr2 = passArray8ToWasm0(dst, wasm.__wbindgen_malloc);
+    const len2 = WASM_VECTOR_LEN;
+    const ret = wasm.verifyBatchRangeProof(ptr0, len0, ptr1, len1, bit_size, ptr2, len2);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -163,19 +175,22 @@ exports.verifyBatchRangeProof = verifyBatchRangeProof;
 
 /**
  * Verify a fastcrypto range proof that the value committed in `commitment`
- * lies in `[0, 2^bit_size)`. Returns `true` if the proof verifies, `false`
- * otherwise.
+ * lies in `[0, 2^bit_size)`. `dst` must match the tag used when proving.
+ * Returns `true` if the proof verifies, `false` otherwise.
  * @param {Uint8Array} proof
  * @param {Uint8Array} commitment
  * @param {number} bit_size
+ * @param {Uint8Array} dst
  * @returns {boolean}
  */
-function verifyRangeProof(proof, commitment, bit_size) {
+function verifyRangeProof(proof, commitment, bit_size, dst) {
     const ptr0 = passArray8ToWasm0(proof, wasm.__wbindgen_malloc);
     const len0 = WASM_VECTOR_LEN;
     const ptr1 = passArray8ToWasm0(commitment, wasm.__wbindgen_malloc);
     const len1 = WASM_VECTOR_LEN;
-    const ret = wasm.verifyRangeProof(ptr0, len0, ptr1, len1, bit_size);
+    const ptr2 = passArray8ToWasm0(dst, wasm.__wbindgen_malloc);
+    const len2 = WASM_VECTOR_LEN;
+    const ret = wasm.verifyRangeProof(ptr0, len0, ptr1, len1, bit_size, ptr2, len2);
     if (ret[2]) {
         throw takeFromExternrefTable0(ret[1]);
     }
@@ -185,31 +200,31 @@ exports.verifyRangeProof = verifyRangeProof;
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
-        __wbg_Error_9dc85fe1bc224456: function(arg0, arg1) {
+        __wbg_Error_92b29b0548f8b746: function(arg0, arg1) {
             const ret = Error(getStringFromWasm0(arg0, arg1));
             return ret;
         },
-        __wbg___wbindgen_is_function_147961669f068cd4: function(arg0) {
+        __wbg___wbindgen_is_function_1ff95bcc5517c252: function(arg0) {
             const ret = typeof(arg0) === 'function';
             return ret;
         },
-        __wbg___wbindgen_is_object_3a2c414391dbf751: function(arg0) {
+        __wbg___wbindgen_is_object_a27215656b807791: function(arg0) {
             const val = arg0;
             const ret = typeof(val) === 'object' && val !== null;
             return ret;
         },
-        __wbg___wbindgen_is_string_6541b0f6ecd4e8e5: function(arg0) {
+        __wbg___wbindgen_is_string_ea5e6cc2e4141dfe: function(arg0) {
             const ret = typeof(arg0) === 'string';
             return ret;
         },
-        __wbg___wbindgen_is_undefined_4410e3c20a99fa97: function(arg0) {
+        __wbg___wbindgen_is_undefined_c05833b95a3cf397: function(arg0) {
             const ret = arg0 === undefined;
             return ret;
         },
-        __wbg___wbindgen_throw_bbadd78c1bac3a77: function(arg0, arg1) {
+        __wbg___wbindgen_throw_344f42d3211c4765: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
         },
-        __wbg_call_ec09a4cf93377d3a: function() { return handleError(function (arg0, arg1, arg2) {
+        __wbg_call_a6e5c5dce5018821: function() { return handleError(function (arg0, arg1, arg2) {
             const ret = arg0.call(arg1, arg2);
             return ret;
         }, arguments); },
@@ -220,7 +235,7 @@ function __wbg_get_imports() {
         __wbg_getRandomValues_c44a50d8cfdaebeb: function() { return handleError(function (arg0, arg1) {
             arg0.getRandomValues(arg1);
         }, arguments); },
-        __wbg_length_68a9d5278d084f4f: function(arg0) {
+        __wbg_length_1f0964f4a5e2c6d8: function(arg0) {
             const ret = arg0.length;
             return ret;
         },
@@ -228,7 +243,7 @@ function __wbg_get_imports() {
             const ret = arg0.msCrypto;
             return ret;
         },
-        __wbg_new_with_length_4b57a7a5dc67221c: function(arg0) {
+        __wbg_new_with_length_e6785c33c8e4cce8: function(arg0) {
             const ret = new Uint8Array(arg0 >>> 0);
             return ret;
         },
@@ -240,7 +255,7 @@ function __wbg_get_imports() {
             const ret = arg0.process;
             return ret;
         },
-        __wbg_prototypesetcall_956c7493c68e29b4: function(arg0, arg1, arg2) {
+        __wbg_prototypesetcall_4770620bbe4688a0: function(arg0, arg1, arg2) {
             Uint8Array.prototype.set.call(getArrayU8FromWasm0(arg0, arg1), arg2);
         },
         __wbg_randomFillSync_6c25eac9869eb53c: function() { return handleError(function (arg0, arg1) {
@@ -250,23 +265,23 @@ function __wbg_get_imports() {
             const ret = module.require;
             return ret;
         }, arguments); },
-        __wbg_static_accessor_GLOBAL_60a4124bab7dcc9a: function() {
+        __wbg_static_accessor_GLOBAL_4ef717fb391d88b7: function() {
             const ret = typeof global === 'undefined' ? null : global;
             return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
         },
-        __wbg_static_accessor_GLOBAL_THIS_95ca6460658b5d13: function() {
+        __wbg_static_accessor_GLOBAL_THIS_8d1badc68b5a74f4: function() {
             const ret = typeof globalThis === 'undefined' ? null : globalThis;
             return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
         },
-        __wbg_static_accessor_SELF_4c95f759a91e9aae: function() {
+        __wbg_static_accessor_SELF_146583524fe1469b: function() {
             const ret = typeof self === 'undefined' ? null : self;
             return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
         },
-        __wbg_static_accessor_WINDOW_44b435597f9e9ee7: function() {
+        __wbg_static_accessor_WINDOW_f2829a2234d7819e: function() {
             const ret = typeof window === 'undefined' ? null : window;
             return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
         },
-        __wbg_subarray_42216645a367cd7a: function(arg0, arg1, arg2) {
+        __wbg_subarray_3ed232c8a6baee09: function(arg0, arg1, arg2) {
             const ret = arg0.subarray(arg1 >>> 0, arg2 >>> 0);
             return ret;
         },

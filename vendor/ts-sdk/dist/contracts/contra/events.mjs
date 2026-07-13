@@ -66,7 +66,8 @@ const TransferEvent = new MoveStruct({
 	fields: {
 		sender: bcs.Address,
 		sender_pk: Element,
-		encrypted_amount_sender: EncryptedAmount,
+		seed_point: Element,
+		batch_index: bcs.u8(),
 		receiver: bcs.Address,
 		receiver_pk: Element,
 		encrypted_amount_receiver: EncryptedAmount,

@@ -1,4 +1,4 @@
-import { PrivateKey } from "./twisted_elgamal.mjs";
+import { PrivateKey, PublicKey } from "./twisted_elgamal.mjs";
 import { ContraAuditorOptions, VerifiedKeyEncryption } from "./types.mjs";
 import { TokenAccount } from "./token_account.mjs";
 
@@ -28,14 +28,16 @@ declare class ContraAuditor {
    * that was active at registration / key-rotation time — useful when tracking historical
    * state across `set_public_key` calls.
    *
+   * `expectedPk` should be the account/event public key from the same object or event.
+   *
    * @throws if `ciphertext` is empty (the user registered when no auditors were configured),
-   * if this auditor has no record for `version`, or if the recorded `index` is out of range
-   * for any per-limb ciphertext.
+   * if this auditor has no record for `version`, if the recorded `index` is out of range for any per-limb
+   * ciphertext, or if the recovered key does not match `expectedPk`.
    */
   recoverPrivateKey({
     ciphertext,
     version
-  }: VerifiedKeyEncryption): PrivateKey;
+  }: VerifiedKeyEncryption, expectedPk: PublicKey): PrivateKey;
   /**
    * Fetch the on-chain `TokenAccount<tokenType>` belonging to `address`, decrypt the user's
    * private key from `verified_key_encryption`, and return a fully-keyed `TokenAccount`.

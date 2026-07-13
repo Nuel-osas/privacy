@@ -1,4 +1,4 @@
-// Live Sui devnet deployment (chain 043d64c6, published 2026-06-08).
+// Live Sui devnet deployment (chain 3b6f3fa4, published 2026-07-13).
 //
 // NOTE: Sui devnet wipes state on reset. If these object IDs stop resolving,
 // devnet was reset — redeploy with: publish contra/move, launchpad/, and
@@ -6,19 +6,19 @@
 // the new IDs here.
 export const DEVNET = {
   // Mysten "Contra" confidential-transfers package + its shared registries
-  contraPackage: "0xa53010ace79c4202c2970cf890f58d1d7745495d45bac96d365a863e9726488d",
-  tokenRegistry: "0xdaa104b92ee16ec361055a1f350af241df186cb4d9b91b9fc68fb36f423f4f42",
-  accountRegistry: "0x522f0631a394a162e650080efbab2b36649cd9f63b2e013d9686dc3b703f58e0",
+  contraPackage: "0x4c86127b0f6a232c0e14bf38d307955e8c3a414cac456f922ccd61ec2872fd2b",
+  tokenRegistry: "0xc8a9557625f33c476360ffa1e021f0b0c6a4a2d0af5ee3ec9c09e3e7a7470a10",
+  accountRegistry: "0xbf67d8c5632822d33eef973cafa16b4010ca5f32b673cbef8123e81090e640e2",
 
   // Our confidential-token launchpad
-  launchpadPackage: "0x4f762554fd3493eab883a6aa372328206ed0991a0ded910f48cd0e8553658010",
-  launchpad: "0x626886c616c34bc3fa54a5dd4335a33cc498f448a5d2fe0dc6bf9f4a89ab343e",
+  launchpadPackage: "0x82bf0fe649414351fb890e9f5976463fbd1e3e0ed6fc84a41d0cb23c2eac3031",
+  launchpad: "0x0f37bb2971ed9e6963118e6ce257cdd74bb083929be00f32a716caa38c1b189e",
 
   // The live OPEN confidential token "BU" — anyone can mint via BuTreasury,
   // and send confidentially via the ConfidentialToken<BU>.
-  buPackage: "0x094d2c74893ead8ff73886ade2966f0f85cefa1b4c382193fe11b49bb7b6fb4c",
-  buTreasury: "0xca41b361b25fabb21a6abcf46c8354bc56377a61dcbca5b88097c0c2283f1286",
-  confidentialToken: "0xef276ec5b7aa4c97f128a2bd2db3e956fc2d595998bef5a4a6c8a48fdba714e0",
-  pool: "0xdc4ce862c238f8e043c674c9decdb79d42dcd8a1d3174b27dcdefc3eff3ccdef",
-  buCoinType: "0x094d2c74893ead8ff73886ade2966f0f85cefa1b4c382193fe11b49bb7b6fb4c::bu::BU",
+  buPackage: "0xa0dd1980c51d121090a22bfe4117bc63d3da5b170616e6044554cf7a101ed3fd",
+  buTreasury: "0x4b2b99b978b59a1d0210d9ba555487c78b6d2b7bc9f3219f484c3bd49f2700a3",
+  confidentialToken: "0x26e92c33a28be31d883a0b1adde6339c7940259bb9deb81a4dbf87e0bc586537",
+  pool: "0xaf0edbc76324ba6b86922327ef9eca6732e1c560d822cb2d57cbf1e5a91790cf",
+  buCoinType: "0xa0dd1980c51d121090a22bfe4117bc63d3da5b170616e6044554cf7a101ed3fd::bu::BU",
 } as const;

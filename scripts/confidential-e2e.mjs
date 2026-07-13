@@ -11,12 +11,12 @@ import { getFaucetHost, requestSuiFromFaucetV2 } from "@mysten/sui/faucet";
 import { ContraClient, TokenAccount, DiscreteLogTable } from "ts-sdk";
 
 const C = {
-  contraPackage: "0xa53010ace79c4202c2970cf890f58d1d7745495d45bac96d365a863e9726488d",
-  tokenRegistry: "0xdaa104b92ee16ec361055a1f350af241df186cb4d9b91b9fc68fb36f423f4f42",
-  accountRegistry: "0x522f0631a394a162e650080efbab2b36649cd9f63b2e013d9686dc3b703f58e0",
-  buPackage: "0x094d2c74893ead8ff73886ade2966f0f85cefa1b4c382193fe11b49bb7b6fb4c",
-  buTreasury: "0xca41b361b25fabb21a6abcf46c8354bc56377a61dcbca5b88097c0c2283f1286",
-  buType: "0x094d2c74893ead8ff73886ade2966f0f85cefa1b4c382193fe11b49bb7b6fb4c::bu::BU",
+  contraPackage: "0x4c86127b0f6a232c0e14bf38d307955e8c3a414cac456f922ccd61ec2872fd2b",
+  tokenRegistry: "0xc8a9557625f33c476360ffa1e021f0b0c6a4a2d0af5ee3ec9c09e3e7a7470a10",
+  accountRegistry: "0xbf67d8c5632822d33eef973cafa16b4010ca5f32b673cbef8123e81090e640e2",
+  buPackage: "0xa0dd1980c51d121090a22bfe4117bc63d3da5b170616e6044554cf7a101ed3fd",
+  buTreasury: "0x4b2b99b978b59a1d0210d9ba555487c78b6d2b7bc9f3219f484c3bd49f2700a3",
+  buType: "0xa0dd1980c51d121090a22bfe4117bc63d3da5b170616e6044554cf7a101ed3fd::bu::BU",
 };
 
 const client = new SuiJsonRpcClient({ network: "devnet", url: getJsonRpcFullnodeUrl("devnet") });

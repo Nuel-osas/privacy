@@ -221,11 +221,12 @@ declare const TransferBatch: MoveEnum<{
   /**
    * The balance proof succeeded. Holds the receiver-keyed `EncryptedCoin`s split off
    * the sender's balance, one per transfer. `add_to_batch` pops one per receiver and
-   * credits it to their pending deposits. `sender_amounts` is the parallel vector of
-   * sender-keyed encryptions of the same _total_ (individual values aren't
-   * constrained — see the `TransferEvent` doc), carried only so each `add_to_batch`
-   * can emit one in the `TransferEvent`. `sender_pk` is likewise carried only for
-   * the event.
+   * credits it to their pending deposits. `seed_point` (= `P`) and
+   * `next_index` are carried only for the events: each `add_to_batch` emits `P` and the
+   * receiver's batch index so the sender can later re-derive that transfer's blinding
+   * (`seed = HKDF(sk * P)`) and recover the amount from the on-chain commitment, without
+   * any sender-keyed decryption handle. `sender_pk` is likewise carried only for the
+   * event.
    */
   Ok: MoveStruct<{
     sender: BcsType<string, string | Uint8Array<ArrayBufferLike>, "bytes[32]">;
@@ -335,91 +336,12 @@ declare const TransferBatch: MoveEnum<{
     }> & {
       length: number;
     }, string>;
-    sender_amounts: BcsType<{
-      l0: {
-        ciphertext: {
-          bytes: number[];
-        };
-        decryption_handle: {
-          bytes: number[];
-        };
-      };
-      l1: {
-        ciphertext: {
-          bytes: number[];
-        };
-        decryption_handle: {
-          bytes: number[];
-        };
-      };
-      l2: {
-        ciphertext: {
-          bytes: number[];
-        };
-        decryption_handle: {
-          bytes: number[];
-        };
-      };
-      l3: {
-        ciphertext: {
-          bytes: number[];
-        };
-        decryption_handle: {
-          bytes: number[];
-        };
-      };
-    }[], Iterable<{
-      l0: {
-        ciphertext: {
-          bytes: Iterable<number> & {
-            length: number;
-          };
-        };
-        decryption_handle: {
-          bytes: Iterable<number> & {
-            length: number;
-          };
-        };
-      };
-      l1: {
-        ciphertext: {
-          bytes: Iterable<number> & {
-            length: number;
-          };
-        };
-        decryption_handle: {
-          bytes: Iterable<number> & {
-            length: number;
-          };
-        };
-      };
-      l2: {
-        ciphertext: {
-          bytes: Iterable<number> & {
-            length: number;
-          };
-        };
-        decryption_handle: {
-          bytes: Iterable<number> & {
-            length: number;
-          };
-        };
-      };
-      l3: {
-        ciphertext: {
-          bytes: Iterable<number> & {
-            length: number;
-          };
-        };
-        decryption_handle: {
-          bytes: Iterable<number> & {
-            length: number;
-          };
-        };
-      };
-    }> & {
-      length: number;
-    }, string>;
+    seed_point: MoveStruct<{
+      bytes: BcsType<number[], Iterable<number> & {
+        length: number;
+      }, string>;
+    }, "0x2::group_ops::Element<phantom T>">;
+    next_index: BcsType<number, number, "u8">;
   }, "TransferBatch.Ok">;
 }, "@local-pkg/contra::contra::TransferBatch<phantom T>">;
 interface AuthorizeAsSenderArguments {
@@ -577,14 +499,13 @@ interface SetPublicKeyArguments {
   auth: TransactionArgument;
   ct: RawTransactionArgument<string>;
   newPk: TransactionArgument;
-  newBalance: TransactionArgument;
-  newBalanceProof: TransactionArgument;
-  handleEqProof: TransactionArgument;
+  newHandles: TransactionArgument;
+  rekeyProof: TransactionArgument;
   keyEncryption: TransactionArgument;
 }
 interface SetPublicKeyOptions {
   package?: string;
-  arguments: SetPublicKeyArguments | [account: RawTransactionArgument<string>, auth: TransactionArgument, ct: RawTransactionArgument<string>, newPk: TransactionArgument, newBalance: TransactionArgument, newBalanceProof: TransactionArgument, handleEqProof: TransactionArgument, keyEncryption: TransactionArgument];
+  arguments: SetPublicKeyArguments | [account: RawTransactionArgument<string>, auth: TransactionArgument, ct: RawTransactionArgument<string>, newPk: TransactionArgument, newHandles: TransactionArgument, rekeyProof: TransactionArgument, keyEncryption: TransactionArgument];
   typeArguments: [string];
 }
 /**
@@ -609,14 +530,13 @@ interface TrySetPublicKeyAndUnpauseArguments {
   restatedBalance: TransactionArgument;
   restatedBalanceProof: TransactionArgument;
   balanceProof: TransactionArgument;
-  newBalance: TransactionArgument;
-  newBalanceProof: TransactionArgument;
-  handleEqProof: TransactionArgument;
+  newHandles: TransactionArgument;
+  rekeyProof: TransactionArgument;
   keyEncryption: TransactionArgument;
 }
 interface TrySetPublicKeyAndUnpauseOptions {
   package?: string;
-  arguments: TrySetPublicKeyAndUnpauseArguments | [account: RawTransactionArgument<string>, auth: TransactionArgument, ct: RawTransactionArgument<string>, newPk: TransactionArgument, restatedBalance: TransactionArgument, restatedBalanceProof: TransactionArgument, balanceProof: TransactionArgument, newBalance: TransactionArgument, newBalanceProof: TransactionArgument, handleEqProof: TransactionArgument, keyEncryption: TransactionArgument];
+  arguments: TrySetPublicKeyAndUnpauseArguments | [account: RawTransactionArgument<string>, auth: TransactionArgument, ct: RawTransactionArgument<string>, newPk: TransactionArgument, restatedBalance: TransactionArgument, restatedBalanceProof: TransactionArgument, balanceProof: TransactionArgument, newHandles: TransactionArgument, rekeyProof: TransactionArgument, keyEncryption: TransactionArgument];
   typeArguments: [string];
 }
 /**
@@ -652,31 +572,33 @@ interface BatchedTransferArguments {
   receiverPks: TransactionArgument;
   receiverAmounts: TransactionArgument;
   wellFormedProofs: TransactionArgument;
-  senderAmounts: TransactionArgument;
+  totalSenderHandle: TransactionArgument;
   consistencyProof: TransactionArgument;
+  seedPoint: TransactionArgument;
   newBalance: TransactionArgument;
   balanceProof: TransactionArgument;
 }
 interface BatchedTransferOptions {
   package?: string;
-  arguments: BatchedTransferArguments | [sender: RawTransactionArgument<string>, auth: TransactionArgument, ct: RawTransactionArgument<string>, receiverPks: TransactionArgument, receiverAmounts: TransactionArgument, wellFormedProofs: TransactionArgument, senderAmounts: TransactionArgument, consistencyProof: TransactionArgument, newBalance: TransactionArgument, balanceProof: TransactionArgument];
+  arguments: BatchedTransferArguments | [sender: RawTransactionArgument<string>, auth: TransactionArgument, ct: RawTransactionArgument<string>, receiverPks: TransactionArgument, receiverAmounts: TransactionArgument, wellFormedProofs: TransactionArgument, totalSenderHandle: TransactionArgument, consistencyProof: TransactionArgument, seedPoint: TransactionArgument, newBalance: TransactionArgument, balanceProof: TransactionArgument];
   typeArguments: [string];
 }
 /**
  * Start a batched transfer from `sender`. `receiver_amounts[i]` is the transferred
- * value re-encrypted under `receiver_pks[i]`; `sender_amounts[i]` is the same
- * value under the sender's key, forwarded to the events and otherwise only checked
- * as a sum. `well_formed_proofs` is a single batched `WellFormedProof` covering
- * `receiver_amounts ++ [new_balance]` under `receiver_pks ++ [sender_pk]` — one
- * aggregate Bulletproof for the whole transfer. `consistency_proof` and
- * `balance_proof` together prove the sender's balance drops by exactly the
- * transfer total (see `balance::try_split_batch`).
+ * value re-encrypted under `receiver_pks[i]`. `well_formed_proofs` is a single
+ * batched `WellFormedProof` covering `receiver_amounts ++ [new_balance]` under
+ * `receiver_pks ++ [sender_pk]` — one aggregate Bulletproof for the whole transfer.
+ * `total_sender_handle` is the single sender-keyed decryption handle for the transfer
+ * total; `consistency_proof` proves it well-formed and `balance_proof` proves the
+ * sender's balance drops by exactly that total (see `balance::try_split_batch`).
+ * `seed_point` (= `P`) is forwarded to the events so the sender can
+ * re-derive each transfer's blinding and recover its outgoing amounts; it is not
+ * otherwise verified on chain.
  *
  * Returns `TransferBatch::Ok` when `balance_proof` verifies, else
- * `BalanceProofFailed`. Aborts if `well_formed_proofs` does not verify, the sender
- * amounts don't sum to the receivers, or `consistency_proof` fails. Call `add`
- * once per receiver, in `receiver_amounts` order, then `finalize`. Authorized by
- * any `Auth<T>` for `sender.owner`.
+ * `BalanceProofFailed`. Aborts if `well_formed_proofs` does not verify or
+ * `consistency_proof` fails. Call `add` once per receiver, in `receiver_amounts`
+ * order, then `finalize`. Authorized by any `Auth<T>` for `sender.owner`.
  */
 declare function batchedTransfer(options: BatchedTransferOptions): (tx: Transaction) => _$_mysten_sui_transactions0.TransactionResult;
 interface AddToBatchArguments {

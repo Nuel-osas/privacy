@@ -5,16 +5,20 @@ import { DdhTupleNizk, ElGamalNizk } from "./nizk.mjs";
 type PublicKey = RistrettoPoint;
 type PrivateKey = bigint;
 /**
- * Compute the raw table entries (truncated x-coordinate → index pairs)
- * for a given numBits. This is a pure function that can run in a web
- * worker. Returns a flat Uint32Array of [key, value, key, value, ...]
- * pairs that can be transferred to the main thread.
+ * Compute the raw table entries (truncated x-coordinates) for a given
+ * numBits. This is a pure function that can run in a web worker. Returns
+ * a Uint32Array where `entries[i]` is the truncated x-coordinate of `i*H`.
+ * The result can be transferred to the main thread.
  */
 declare function computeTableEntries(numBits: number): Uint32Array;
 /**
  * Precomputed discrete-log table for ristretto255. Stores sequential
  * multiples of H keyed by truncated 4-byte Edwards x-coordinates,
  * with verification by scalar multiplication to guard against collisions.
+ *
+ * The table is held as two parallel, key-sorted `Uint32Array`s — `#keys`
+ * (the truncated x-coordinates, ascending) and `#values` (the matching
+ * baby-step index `i` such that `i*H` has that key).
  *
  * Decrypt searches by subtracting `2^numBits * H` (the giant step)
  * each iteration and checking the table. Small values (the common
@@ -34,7 +38,11 @@ declare class DiscreteLogTable {
   private constructor();
   /** Compute the table synchronously (convenience for tests / Node). */
   static create(numBits?: number): DiscreteLogTable;
-  /** Construct from pre-computed entries (e.g. from a web worker). */
+  /**
+   * Construct from pre-computed entries (e.g. from a web worker), where
+   * `entries[i]` is the truncated x-coordinate of `i*H`. Sorts the baby-step
+   * indices by their key into the parallel `#keys` / `#values` arrays.
+   */
   static fromEntries(numBits: number, entries: Uint32Array): DiscreteLogTable;
   /**
    * Look up a point in the cache or precomputed table. Returns the
@@ -67,11 +75,10 @@ declare class Ciphertext {
     blinding: bigint;
   };
   /**
-   * Encrypt a value under `pk` and generate an ElGamal consistency proof.
-   * `blinding` defaults to a fresh random scalar; pass it explicitly to
-   * re-key an existing amount while keeping the same per-limb commitment.
+   * Encrypt a value under `pk` with the given `blinding` and generate an ElGamal
+   * consistency proof.
    */
-  static encryptWithConsistencyProof(dst: Uint8Array, pk: PublicKey, value: bigint): {
+  static encryptWithConsistencyProof(dst: Uint8Array, pk: PublicKey, value: bigint, blinding: bigint): {
     ciphertext: Ciphertext;
     blinding: bigint;
     proof: ElGamalNizk;
@@ -125,6 +132,11 @@ declare class Ciphertext {
    * under the same key invert once and reuse the result.
    */
   decryptWithInverse(privateKeyInverse: bigint, table: DiscreteLogTable): bigint;
+  /**
+   * Recover the plaintext from the commitment alone, given the blinding `r`
+   * used to form it.
+   */
+  decryptWithBlinding(blinding: bigint, table: DiscreteLogTable): bigint;
 }
 /**
  * Four twisted ElGamal ciphertext limbs that together represent an
@@ -192,6 +204,11 @@ declare class EncryptedAmount {
    * into place: `l0 + 2^16 * l1 + 2^32 * l2 + 2^48 * l3`.
    */
   decrypt(privateKey: PrivateKey, table: DiscreteLogTable): bigint;
+  /**
+   * Recover the plaintext from the limb commitments alone, given the per-limb
+   * blindings.
+   */
+  decryptWithBlindings(blindingForLimb: (limbIndex: number) => bigint, table: DiscreteLogTable): bigint;
 }
 /**
  * A Twisted ElGamal ciphertext encrypted to multiple recipients.

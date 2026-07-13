@@ -46,6 +46,41 @@ function isValidRelation(e1, e2, e3, z, c) {
 	return equalBytes(e1.toBytes(), mul(e3, z).subtract(mul(e2, c)).toBytes());
 }
 /**
+* Fiat-Shamir challenge for the batched DDH proof. Binds, in order, the DST, every base, every
+* image, and every per-pair Schnorr commitment (matching Move's `challenge_batched_ddh`).
+*/
+function challengeBatchedDdh(dst, bases, images, commitments) {
+	return fiatShamirChallenge([
+		dst,
+		...bases.map((b) => b.toBytes()),
+		...images.map((i) => i.toBytes()),
+		...commitments.map((c) => c.toBytes())
+	]);
+}
+/**
+* Non-interactive zero-knowledge proof of a shared-witness DDH relation over a batch of base/image
+* pairs: proves knowledge of a single `w` such that `images[k] = w * bases[k]` for every `k`.
+*
+* Layout matches the on-chain `contra::nizk::BatchedDdhProof` struct.
+*/
+var BatchedDdhNizk = class BatchedDdhNizk {
+	constructor(commitments, z) {
+		this.commitments = commitments;
+		this.z = z;
+	}
+	static prove(dst, w, bases, images) {
+		const s = randomScalar();
+		const commitments = bases.map((b) => mul(b, s));
+		const c = challengeBatchedDdh(dst, bases, images, commitments);
+		return new BatchedDdhNizk(commitments, ristretto255.Point.Fn.create(s + c * w));
+	}
+	verify(dst, bases, images) {
+		if (images.length !== bases.length || this.commitments.length !== bases.length) return false;
+		const c = challengeBatchedDdh(dst, bases, images, this.commitments);
+		return bases.every((base, k) => isValidRelation(this.commitments[k], images[k], base, this.z, c));
+	}
+};
+/**
 * Fiat-Shamir challenge for the ElGamal proof. Binds the bases `g, h` so the challenge commits to
 * the full statement (matching Move's `challenge_elgamal`).
 */
@@ -187,4 +222,4 @@ var KeyConsistencyProof = class KeyConsistencyProof {
 	}
 };
 //#endregion
-export { DdhTupleNizk, ElGamalNizk, KeyConsistencyProof, limbsToScalar, scalarToLimbs };
+export { BatchedDdhNizk, DdhTupleNizk, ElGamalNizk, KeyConsistencyProof, limbsToScalar, scalarToLimbs };

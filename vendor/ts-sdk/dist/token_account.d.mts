@@ -1,3 +1,4 @@
+import { RistrettoPoint } from "./ristretto255.mjs";
 import { Ciphertext, DiscreteLogTable, EncryptedAmount, PrivateKey, PublicKey } from "./twisted_elgamal.mjs";
 import { DdhTupleNizk } from "./nizk.mjs";
 import { ContraPackageConfig } from "./types.mjs";
@@ -49,6 +50,11 @@ declare class TokenAccount {
     value: bigint;
     proof: DdhTupleNizk;
   };
+  /**
+   * Recover an outgoing batched-transfer amount this account sent, from the
+   * on-chain `TransferEvent`, without any sender-keyed decryption handle.
+   */
+  recoverSentAmount(encryptedAmount: EncryptedAmount, seedPoint: RistrettoPoint, batchIndex: number, table: DiscreteLogTable): bigint;
 }
 //#endregion
 export { TokenAccount };

@@ -44,6 +44,17 @@ function ddhProof(options) {
 		arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames)
 	});
 }
+function batchedDdhProof(options) {
+	const packageAddress = options.package ?? "@local-pkg/contra";
+	const argumentsTypes = ["vector<vector<u8>>"];
+	const parameterNames = ["parts"];
+	return (tx) => tx.moveCall({
+		package: packageAddress,
+		module: "decode",
+		function: "batched_ddh_proof",
+		arguments: normalizeMoveArguments(options.arguments, argumentsTypes, parameterNames)
+	});
+}
 function elgamalProof(options) {
 	const packageAddress = options.package ?? "@local-pkg/contra";
 	const argumentsTypes = ["vector<vector<u8>>"];
@@ -78,4 +89,4 @@ function keyConsistencyProof(options) {
 	});
 }
 //#endregion
-export { consistencyProof, ddhProof, elgamalProof, encryptedAmount, gVector, keyConsistencyProof, multiRecipientEncryption };
+export { batchedDdhProof, consistencyProof, ddhProof, elgamalProof, encryptedAmount, gVector, keyConsistencyProof, multiRecipientEncryption };

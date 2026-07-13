@@ -1,4 +1,5 @@
 import { InvalidArgumentError } from "./error.mjs";
+import { G, GROUP_ORDER, mul, pointFromBcs } from "./ristretto255.mjs";
 import { TokenAccount, TokenAccountKey } from "./contracts/contra/contra.mjs";
 import { Field } from "./contracts/sui/dynamic_field.mjs";
 import { getTokenAccountId } from "./helpers.mjs";
@@ -43,18 +44,22 @@ var ContraAuditor = class {
 	* that was active at registration / key-rotation time — useful when tracking historical
 	* state across `set_public_key` calls.
 	*
+	* `expectedPk` should be the account/event public key from the same object or event.
+	*
 	* @throws if `ciphertext` is empty (the user registered when no auditors were configured),
-	* if this auditor has no record for `version`, or if the recorded `index` is out of range
-	* for any per-limb ciphertext.
+	* if this auditor has no record for `version`, if the recorded `index` is out of range for any per-limb
+	* ciphertext, or if the recovered key does not match `expectedPk`.
 	*/
-	recoverPrivateKey({ ciphertext, version }) {
+	recoverPrivateKey({ ciphertext, version }, expectedPk) {
 		if (ciphertext.length === 0) throw new InvalidArgumentError(`Cannot recover private key: account was registered with no auditors (version ${version}).`);
 		const entry = this.#auditorKeyForVersion.get(version);
 		if (entry === void 0) throw new InvalidArgumentError(`Auditor has no record for version ${version}. Known versions: [${Array.from(this.#auditorKeyForVersion.keys()).sort((a, b) => a - b).join(", ")}].`);
-		return limbsToScalar(ciphertext.map((mrc, i) => {
+		const recoveredKey = limbsToScalar(ciphertext.map((mrc, i) => {
 			if (entry.index >= mrc.decryptionHandles.length) throw new InvalidArgumentError(`Auditor index ${entry.index} out of range for limb ${i} (have ${mrc.decryptionHandles.length} recipients) at version ${version}.`);
 			return mrc.decrypt(entry.index, entry.privateKey, this.#table);
-		}));
+		})) % GROUP_ORDER;
+		if (!mul(G, recoveredKey).equals(expectedPk)) throw new InvalidArgumentError(`Recovered key does not match the account public key (version ${version}); the key-encryption payload is forged or corrupted.`);
+		return recoveredKey;
 	}
 	/**
 	* Fetch the on-chain `TokenAccount<tokenType>` belonging to `address`, decrypt the user's
@@ -77,7 +82,7 @@ var ContraAuditor = class {
 			ciphertext: parsed.verified_key_encryption.ciphertext.map((raw) => MultiRecipientEncryption.fromBcs(raw)),
 			version: parsed.verified_key_encryption.version
 		};
-		const privateKey = this.recoverPrivateKey(verified);
+		const privateKey = this.recoverPrivateKey(verified, pointFromBcs(parsed.pk));
 		return new TokenAccount$1(address, this.#tokenType, this.#packageConfig, privateKey);
 	}
 };

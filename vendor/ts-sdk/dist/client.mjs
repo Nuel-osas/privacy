@@ -1,12 +1,13 @@
 import { DepositsMustBePausedError, InsufficientBalanceError, InvalidArgumentError, ReceiverDoesNotAcceptDepositsError, TokenAccountDoesNotExistError } from "./error.mjs";
-import { addScalars, mul, pointFromBcs } from "./ristretto255.mjs";
+import { addScalars, mul, pointFromBcs, randomScalar } from "./ristretto255.mjs";
 import { getBulletproofs } from "./bp.mjs";
 import { ConfidentialToken, TokenAccount, TokenAccountKey, addToBatch, authorizeAsSender, batchedTransfer, merge, newAccount, register, setAcceptsEncryptedDeposits, shareAccount, tryFinalize, trySetPublicKeyAndUnpause, tryUnwrap, updateActiveBalance, wrap } from "./contracts/contra/contra.mjs";
 import { Field } from "./contracts/sui/dynamic_field.mjs";
-import { buildDdhProof, buildElGamalProof, buildEncryptedAmount, buildEncryptedAmountAndProof, buildGVector, buildKeyEncryptionOption, buildWellFormedProof, getAccountId, getConfidentialTokenId, getTokenAccountId, point } from "./helpers.mjs";
-import { DdhTupleNizk, ElGamalNizk } from "./nizk.mjs";
+import { buildBatchedDdhProof, buildDdhProof, buildElGamalProof, buildEncryptedAmount, buildEncryptedAmountAndProof, buildGVector, buildKeyEncryptionOption, buildWellFormedProof, getAccountId, getConfidentialTokenId, getTokenAccountId, point } from "./helpers.mjs";
+import { BatchedDdhNizk, ElGamalNizk } from "./nizk.mjs";
 import { Ciphertext, EncryptedAmount, collapseBlindings } from "./twisted_elgamal.mjs";
 import { KeyEncryption } from "./key_encryption.mjs";
+import { sampleTransferRandomness } from "./transfer_randomness.mjs";
 import { bcs } from "@mysten/sui/bcs";
 import { deriveObjectID, normalizeSuiAddress } from "@mysten/sui/utils";
 import { ristretto255 } from "@noble/curves/ed25519.js";
@@ -325,7 +326,7 @@ var ContraClient = class {
 		const pkBytes = tokenAccount.publicKey.toBytes();
 		const pid = this.#packageConfig.packageId;
 		const { batchRangeProver } = await this.#getBulletproofs();
-		const keyEncryption = auditorPublicKeys && auditorPublicKeys.length > 0 ? KeyEncryption.prove(batchRangeProver, tokenAccount.dst(3), tokenAccount.privateKey, tokenAccount.publicKey, auditorPublicKeys) : void 0;
+		const keyEncryption = auditorPublicKeys && auditorPublicKeys.length > 0 ? KeyEncryption.prove(batchRangeProver, tokenAccount.dst(3), tokenAccount.dst(5), tokenAccount.privateKey, tokenAccount.publicKey, auditorPublicKeys) : void 0;
 		return (tx) => tx.add(register({
 			package: pid,
 			typeArguments: [tokenType],
@@ -396,7 +397,7 @@ var ContraClient = class {
 		const ddhDst = tokenAccount.dst(1);
 		const newBalance = intoLimbs(spendable - amount).map((v) => ({
 			value: v,
-			...Ciphertext.encryptWithConsistencyProof(elgamalDst, pk, v)
+			...Ciphertext.encryptWithConsistencyProof(elgamalDst, pk, v, randomScalar())
 		}));
 		return {
 			shouldMerge,
@@ -466,7 +467,7 @@ var ContraClient = class {
 	*/
 	#updateActiveBalance(batchRangeProver, tx, tokenAccount, newBalance, balanceProof, auth) {
 		const pid = this.#packageConfig.packageId;
-		const { encryptedAmount, wellFormedProof } = buildEncryptedAmountAndProof(batchRangeProver, tx, pid, newBalance);
+		const { encryptedAmount, wellFormedProof } = buildEncryptedAmountAndProof(batchRangeProver, tokenAccount.dst(4), tx, pid, newBalance);
 		return tx.add(updateActiveBalance({
 			package: pid,
 			typeArguments: [tokenAccount.tokenType],
@@ -594,26 +595,16 @@ var ContraClient = class {
 		const ddhDst = tokenAccount.dst(1);
 		const newBalanceUnderOldPk = intoLimbs(totalSpendable).map((value) => ({
 			value,
-			...Ciphertext.encryptWithConsistencyProof(elgamalDst, oldPk, value)
+			...Ciphertext.encryptWithConsistencyProof(elgamalDst, oldPk, value, randomScalar())
 		}));
 		const balanceProofUpdate = new EncryptedAmount(newBalanceUnderOldPk[0].ciphertext, newBalanceUnderOldPk[1].ciphertext, newBalanceUnderOldPk[2].ciphertext, newBalanceUnderOldPk[3].ciphertext).collapse().subtract(oldCollapsed).proveIsZero(ddhDst, oldSk, oldPk);
-		const newBalanceUnderNewPk = newBalanceUnderOldPk.map((l) => {
-			const ciphertext = new Ciphertext(l.ciphertext.ciphertext, mul(newPk, l.blinding));
-			const proof = ElGamalNizk.prove(elgamalDst, l.blinding, l.value, ciphertext, newPk);
-			return {
-				value: l.value,
-				blinding: l.blinding,
-				ciphertext,
-				proof
-			};
-		});
-		const rCollapsed = collapseBlindings(newBalanceUnderOldPk);
-		const oldHandle = mul(oldPk, rCollapsed);
-		const newHandle = mul(newPk, rCollapsed);
 		const w = ristretto255.Point.Fn.create(newSk * ristretto255.Point.Fn.inv(oldSk));
-		const handleEqProof = DdhTupleNizk.prove(ddhDst, w, oldPk, oldHandle, newPk, newHandle);
+		const newBalanceUnderNewPk = newBalanceUnderOldPk.map((l) => ({ ciphertext: new Ciphertext(l.ciphertext.ciphertext, mul(l.ciphertext.decryptionHandle, w)) }));
+		const rekeyBases = [oldPk, ...newBalanceUnderOldPk.map((l) => l.ciphertext.decryptionHandle)];
+		const rekeyImages = [newPk, ...newBalanceUnderNewPk.map((l) => l.ciphertext.decryptionHandle)];
+		const rekeyProof = BatchedDdhNizk.prove(tokenAccount.dst(6), w, rekeyBases, rekeyImages);
 		const { batchRangeProver } = await this.#getBulletproofs();
-		const keyEncryption = useAuditors ? KeyEncryption.prove(batchRangeProver, tokenAccount.dst(3), newSk, newPk, auditorPks) : void 0;
+		const keyEncryption = useAuditors ? KeyEncryption.prove(batchRangeProver, tokenAccount.dst(3), tokenAccount.dst(5), newSk, newPk, auditorPks) : void 0;
 		return (tx) => {
 			const authArg = auth ? auth(tx) : this.#asSenderAuth(tx, tokenType);
 			const pid = this.#packageConfig.packageId;
@@ -624,8 +615,8 @@ var ContraClient = class {
 					auth: authArg
 				}));
 			}
-			const { encryptedAmount: restatedBalance, wellFormedProof: restatedBalanceProof } = buildEncryptedAmountAndProof(batchRangeProver, tx, pid, newBalanceUnderOldPk);
-			const { encryptedAmount: newBalance, wellFormedProof: newBalanceProof } = buildEncryptedAmountAndProof(batchRangeProver, tx, pid, newBalanceUnderNewPk);
+			const { encryptedAmount: restatedBalance, wellFormedProof: restatedBalanceProof } = buildEncryptedAmountAndProof(batchRangeProver, tokenAccount.dst(4), tx, pid, newBalanceUnderOldPk);
+			const newHandles = tx.add(buildGVector(pid, newBalanceUnderNewPk.map((l) => l.ciphertext.decryptionHandle)));
 			return tx.add(trySetPublicKeyAndUnpause({
 				package: pid,
 				typeArguments: [tokenType],
@@ -637,9 +628,8 @@ var ContraClient = class {
 					restatedBalance,
 					restatedBalanceProof,
 					balanceProof: buildDdhProof(pid, balanceProofUpdate),
-					newBalance,
-					newBalanceProof,
-					handleEqProof: buildDdhProof(pid, handleEqProof),
+					newHandles,
+					rekeyProof: buildBatchedDdhProof(pid, rekeyProof),
 					keyEncryption: buildKeyEncryptionOption(pid, keyEncryption)
 				}
 			}));
@@ -718,7 +708,7 @@ var ContraClient = class {
 	* ```
 	*
 	* SDK-thrown:
-	* - `InvalidArgumentError` — `recipients` is empty, has more than 7 entries, or
+	* - `InvalidArgumentError` — `recipients` is empty, has more than 255 entries, or
 	*   contains the sender's own address.
 	* - `ReceiverDoesNotAcceptDepositsError` — at least one receiver has paused encrypted
 	*   deposits or has a per-account freeze active.
@@ -749,17 +739,16 @@ var ContraClient = class {
 			state: receiverStates[i]
 		})).filter(({ state }) => !state.acceptsEncryptedDeposits || state.isFrozen).map(({ recipient }) => recipient.receiverAddress);
 		if (refusing.length > 0) throw new ReceiverDoesNotAcceptDepositsError(refusing);
+		const randomness = sampleTransferRandomness(senderPk);
 		const prepared = recipients.map((recipient, i) => {
 			const receiverPk = receiverStates[i].pk;
-			const encAmountReceiver = intoLimbs(recipient.amount).map((value) => ({
-				value,
-				...Ciphertext.encryptWithConsistencyProof(elgamalDst, receiverPk, value)
-			}));
 			return {
 				recipient,
 				receiverPk,
-				encAmountReceiver,
-				encAmountSender: encAmountReceiver.map((limb) => ({ ciphertext: Ciphertext.encryptWithBlinding(senderPk, limb.value, limb.blinding).ciphertext }))
+				encAmountReceiver: intoLimbs(recipient.amount).map((value, j) => ({
+					value,
+					...Ciphertext.encryptWithConsistencyProof(elgamalDst, receiverPk, value, randomness.blinding(i, j))
+				}))
 			};
 		});
 		const totalAmount = recipients.reduce((acc, r) => acc + r.amount, 0n);
@@ -787,12 +776,10 @@ var ContraClient = class {
 						type: `${pid}::encrypted_amount::EncryptedAmount`,
 						elements: prepared.map((p) => buildEncryptedAmount(pid, p.encAmountReceiver.map((l) => l.ciphertext)))
 					}),
-					wellFormedProofs: buildWellFormedProof(batchRangeProver, pid, [...prepared.map((p) => p.encAmountReceiver), newBalance]),
-					senderAmounts: tx.makeMoveVec({
-						type: `${pid}::encrypted_amount::EncryptedAmount`,
-						elements: prepared.map((p) => buildEncryptedAmount(pid, p.encAmountSender.map((limb) => limb.ciphertext)))
-					}),
+					wellFormedProofs: buildWellFormedProof(batchRangeProver, tokenAccount.dst(4), pid, [...prepared.map((p) => p.encAmountReceiver), newBalance]),
+					totalSenderHandle: point(totalSenderEnc.decryptionHandle.toBytes()),
 					consistencyProof: buildElGamalProof(pid, consistencyProof),
+					seedPoint: point(randomness.seedPoint.toBytes()),
 					newBalance: buildEncryptedAmount(pid, newBalance.map((l) => l.ciphertext)),
 					balanceProof: buildDdhProof(pid, balanceProof)
 				}
@@ -837,7 +824,7 @@ var ContraClient = class {
 	* ```
 	*
 	* SDK-thrown:
-	* - `InvalidArgumentError` — `recipients` is empty, has more than 7 entries, or contains the
+	* - `InvalidArgumentError` — `recipients` is empty, has more than 255 entries, or contains the
 	*   sender's own address.
 	* - `ReceiverDoesNotAcceptDepositsError` — at least one receiver has paused encrypted deposits
 	*   or has a per-account freeze active.
@@ -875,17 +862,16 @@ var ContraClient = class {
 		const { balance, pending, pendingPublicBalance } = await this.getBalance(tokenAccount);
 		const total = balance.amount + pending.amount + pendingPublicBalance;
 		const oldCollapsed = balance.ciphertext.collapse().add(pending.ciphertext.collapse()).add(Ciphertext.trivial(pendingPublicBalance));
+		const randomness = sampleTransferRandomness(oldPk);
 		const prepared = recipients.map((recipient, i) => {
 			const receiverPk = receiverStates[i].pk;
-			const encAmountReceiver = intoLimbs(recipient.amount).map((value) => ({
-				value,
-				...Ciphertext.encryptWithConsistencyProof(elgamalDst, receiverPk, value)
-			}));
 			return {
 				recipient,
 				receiverPk,
-				encAmountReceiver,
-				encAmountSender: encAmountReceiver.map((limb) => ({ ciphertext: Ciphertext.encryptWithBlinding(oldPk, limb.value, limb.blinding).ciphertext }))
+				encAmountReceiver: intoLimbs(recipient.amount).map((value, j) => ({
+					value,
+					...Ciphertext.encryptWithConsistencyProof(elgamalDst, receiverPk, value, randomness.blinding(i, j))
+				}))
 			};
 		});
 		const totalAmount = recipients.reduce((acc, r) => acc + r.amount, 0n);
@@ -895,33 +881,23 @@ var ContraClient = class {
 		const consistencyProof = ElGamalNizk.prove(elgamalDst, totalBlinding, totalAmount, totalSenderEnc, oldPk);
 		const transferNewBalance = intoLimbs(total - totalAmount).map((value) => ({
 			value,
-			...Ciphertext.encryptWithConsistencyProof(elgamalDst, oldPk, value)
+			...Ciphertext.encryptWithConsistencyProof(elgamalDst, oldPk, value, randomScalar())
 		}));
 		const transferNewBalanceEnc = new EncryptedAmount(transferNewBalance[0].ciphertext, transferNewBalance[1].ciphertext, transferNewBalance[2].ciphertext, transferNewBalance[3].ciphertext);
 		const transferBalanceProof = transferNewBalanceEnc.collapse().subtract(oldCollapsed).add(totalSenderEnc).proveIsZero(ddhDst, oldSk, oldPk);
 		const postTransferCollapsed = transferNewBalanceEnc.collapse();
 		const restateUnderOldPk = intoLimbs(total - totalAmount).map((value) => ({
 			value,
-			...Ciphertext.encryptWithConsistencyProof(elgamalDst, oldPk, value)
+			...Ciphertext.encryptWithConsistencyProof(elgamalDst, oldPk, value, randomScalar())
 		}));
 		const restateProof = new EncryptedAmount(restateUnderOldPk[0].ciphertext, restateUnderOldPk[1].ciphertext, restateUnderOldPk[2].ciphertext, restateUnderOldPk[3].ciphertext).collapse().subtract(postTransferCollapsed).proveIsZero(ddhDst, oldSk, oldPk);
-		const balanceUnderNewPk = restateUnderOldPk.map((l) => {
-			const ciphertext = new Ciphertext(l.ciphertext.ciphertext, mul(newPk, l.blinding));
-			const proof = ElGamalNizk.prove(elgamalDst, l.blinding, l.value, ciphertext, newPk);
-			return {
-				value: l.value,
-				blinding: l.blinding,
-				ciphertext,
-				proof
-			};
-		});
-		const rCollapsed = collapseBlindings(restateUnderOldPk);
-		const oldHandle = mul(oldPk, rCollapsed);
-		const newHandle = mul(newPk, rCollapsed);
 		const w = ristretto255.Point.Fn.create(newSk * ristretto255.Point.Fn.inv(oldSk));
-		const handleEqProof = DdhTupleNizk.prove(ddhDst, w, oldPk, oldHandle, newPk, newHandle);
+		const balanceUnderNewPk = restateUnderOldPk.map((l) => ({ ciphertext: new Ciphertext(l.ciphertext.ciphertext, mul(l.ciphertext.decryptionHandle, w)) }));
+		const rekeyBases = [oldPk, ...restateUnderOldPk.map((l) => l.ciphertext.decryptionHandle)];
+		const rekeyImages = [newPk, ...balanceUnderNewPk.map((l) => l.ciphertext.decryptionHandle)];
+		const rekeyProof = BatchedDdhNizk.prove(tokenAccount.dst(6), w, rekeyBases, rekeyImages);
 		const { batchRangeProver } = await this.#getBulletproofs();
-		const keyEncryption = useAuditors ? KeyEncryption.prove(batchRangeProver, tokenAccount.dst(3), newSk, newPk, auditorPks) : void 0;
+		const keyEncryption = useAuditors ? KeyEncryption.prove(batchRangeProver, tokenAccount.dst(3), tokenAccount.dst(5), newSk, newPk, auditorPks) : void 0;
 		return (tx) => {
 			const authArg = auth ? auth(tx) : this.#asSenderAuth(tx, tokenType);
 			const pid = this.#packageConfig.packageId;
@@ -942,12 +918,10 @@ var ContraClient = class {
 						type: `${pid}::encrypted_amount::EncryptedAmount`,
 						elements: prepared.map((p) => buildEncryptedAmount(pid, p.encAmountReceiver.map((l) => l.ciphertext)))
 					}),
-					wellFormedProofs: buildWellFormedProof(batchRangeProver, pid, [...prepared.map((p) => p.encAmountReceiver), transferNewBalance]),
-					senderAmounts: tx.makeMoveVec({
-						type: `${pid}::encrypted_amount::EncryptedAmount`,
-						elements: prepared.map((p) => buildEncryptedAmount(pid, p.encAmountSender.map((limb) => limb.ciphertext)))
-					}),
+					wellFormedProofs: buildWellFormedProof(batchRangeProver, tokenAccount.dst(4), pid, [...prepared.map((p) => p.encAmountReceiver), transferNewBalance]),
+					totalSenderHandle: point(totalSenderEnc.decryptionHandle.toBytes()),
 					consistencyProof: buildElGamalProof(pid, consistencyProof),
+					seedPoint: point(randomness.seedPoint.toBytes()),
 					newBalance: buildEncryptedAmount(pid, transferNewBalance.map((l) => l.ciphertext)),
 					balanceProof: buildDdhProof(pid, transferBalanceProof)
 				}
@@ -966,8 +940,8 @@ var ContraClient = class {
 				typeArguments: [tokenType],
 				arguments: { batch }
 			}));
-			const { encryptedAmount: restatedEa, wellFormedProof: restatedEaProof } = buildEncryptedAmountAndProof(batchRangeProver, tx, pid, restateUnderOldPk);
-			const { encryptedAmount: newEa, wellFormedProof: newEaProof } = buildEncryptedAmountAndProof(batchRangeProver, tx, pid, balanceUnderNewPk);
+			const { encryptedAmount: restatedEa, wellFormedProof: restatedEaProof } = buildEncryptedAmountAndProof(batchRangeProver, tokenAccount.dst(4), tx, pid, restateUnderOldPk);
+			const newHandles = tx.add(buildGVector(pid, balanceUnderNewPk.map((l) => l.ciphertext.decryptionHandle)));
 			return tx.add(trySetPublicKeyAndUnpause({
 				package: pid,
 				typeArguments: [tokenType],
@@ -979,9 +953,8 @@ var ContraClient = class {
 					restatedBalance: restatedEa,
 					restatedBalanceProof: restatedEaProof,
 					balanceProof: buildDdhProof(pid, restateProof),
-					newBalance: newEa,
-					newBalanceProof: newEaProof,
-					handleEqProof: buildDdhProof(pid, handleEqProof),
+					newHandles,
+					rekeyProof: buildBatchedDdhProof(pid, rekeyProof),
 					keyEncryption: buildKeyEncryptionOption(pid, keyEncryption)
 				}
 			}));
@@ -1036,7 +1009,7 @@ var ContraClient = class {
 				auth: authArg
 			}));
 			const pid = this.#packageConfig.packageId;
-			const { encryptedAmount: newBalanceEa, wellFormedProof: newBalanceProof } = buildEncryptedAmountAndProof(batchRangeProver, tx, pid, newBalance);
+			const { encryptedAmount: newBalanceEa, wellFormedProof: newBalanceProof } = buildEncryptedAmountAndProof(batchRangeProver, tokenAccount.dst(4), tx, pid, newBalance);
 			return tx.add(tryUnwrap({
 				package: pid,
 				typeArguments: [tokenType],
@@ -1066,12 +1039,8 @@ var ContraClient = class {
 		}));
 	}
 };
-/**
-* Max recipients in a single `transferBatch` PTB. Move's bulletproof verifier
-* aggregates at most 8 range proofs in one call; one slot is consumed by the
-* sender's new-balance proof, leaving 7 for recipients.
-*/
-const MAX_BATCH_RECIPIENTS = 7;
+/** Max recipients in a single `transferBatch` PTB. Mirrors `MAX_BATCH_RECIPIENTS` in `contra.move`. */
+const MAX_BATCH_RECIPIENTS = 255;
 /** Build a `vector<u8>` memo argument; an absent or empty string encodes as an empty vector. */
 function memoBytes(memo) {
 	return memo ? Array.from(new TextEncoder().encode(memo)) : [];

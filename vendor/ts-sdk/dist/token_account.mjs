@@ -1,5 +1,6 @@
 import { G, assertNonZeroScalar, mul, randomScalar } from "./ristretto255.mjs";
 import { dst, newSessionId } from "./helpers.mjs";
+import { recoverTransferRandomness } from "./transfer_randomness.mjs";
 //#region src/token_account.ts
 /**
 * Represents a per-(address, tokenType) token account on the client
@@ -59,6 +60,14 @@ var TokenAccount = class {
 			value,
 			proof: ciphertext.proveDecryption(verifiedDecDst, this.privateKey, this.publicKey, value)
 		};
+	}
+	/**
+	* Recover an outgoing batched-transfer amount this account sent, from the
+	* on-chain `TransferEvent`, without any sender-keyed decryption handle.
+	*/
+	recoverSentAmount(encryptedAmount, seedPoint, batchIndex, table) {
+		const randomness = recoverTransferRandomness(this.privateKey, seedPoint);
+		return encryptedAmount.decryptWithBlindings((limbIndex) => randomness.blinding(batchIndex, limbIndex), table);
 	}
 };
 //#endregion

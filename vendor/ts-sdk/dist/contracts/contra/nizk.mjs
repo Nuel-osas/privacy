@@ -33,5 +33,12 @@ new MoveStruct({
 		z: Element
 	}
 });
+new MoveStruct({
+	name: `${$moduleName}::BatchedDdhProof`,
+	fields: {
+		commitments: bcs.vector(Element),
+		z: Element
+	}
+});
 //#endregion
 export { ElGamalProof, KeyConsistencyProof };

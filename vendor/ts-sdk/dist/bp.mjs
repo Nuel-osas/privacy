@@ -24,22 +24,22 @@ import init, { batchRangeProof, verifyBatchRangeProof } from "@contra/bulletproo
 async function getBulletproofs(moduleOrPath) {
 	await init({ module_or_path: moduleOrPath });
 	return {
-		batchRangeProver(values, blindings, bitSize) {
+		batchRangeProver(values, blindings, bitSize, dst) {
 			if (values.length !== blindings.length) throw new ContraInternalError(`values.length must equal blindings.length (got ${values.length} and ${blindings.length})`);
 			const n = values.length;
 			if (n === 0 || (n & n - 1) !== 0) throw new ContraInternalError(`values.length must be a positive power of 2 (got ${n})`);
 			const blindingBuf = new Uint8Array(n * 32);
 			for (let i = 0; i < n; i++) blindingBuf.set(scalarToBytes(blindings[i]), i * 32);
-			const { proof, commitments: flatCommitments } = batchRangeProof(new BigUint64Array(values), blindingBuf, bitSize);
+			const { proof, commitments: flatCommitments } = batchRangeProof(new BigUint64Array(values), blindingBuf, bitSize, dst);
 			return {
 				proof,
 				commitments: Array.from(chunks(flatCommitments, 32), (c) => ristretto255.Point.fromBytes(c))
 			};
 		},
-		verifyBatchRangeProof(proof, commitments, bitSize) {
+		verifyBatchRangeProof(proof, commitments, bitSize, dst) {
 			const commitmentBuf = new Uint8Array(commitments.length * 32);
 			for (let i = 0; i < commitments.length; i++) commitmentBuf.set(commitments[i].toBytes(), i * 32);
-			return verifyBatchRangeProof(proof, commitmentBuf, bitSize);
+			return verifyBatchRangeProof(proof, commitmentBuf, bitSize, dst);
 		}
 	};
 }

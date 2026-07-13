@@ -1,7 +1,7 @@
 import { InvalidArgumentError } from "./error.mjs";
 import { newKeyEncryption } from "./contracts/contra/auditors.mjs";
 import { newWellFormedProof } from "./contracts/contra/encrypted_amount.mjs";
-import { consistencyProof, ddhProof, elgamalProof, encryptedAmount, gVector, keyConsistencyProof, multiRecipientEncryption } from "./contracts/contra/decode.mjs";
+import { batchedDdhProof, consistencyProof, ddhProof, elgamalProof, encryptedAmount, gVector, keyConsistencyProof, multiRecipientEncryption } from "./contracts/contra/decode.mjs";
 import { bcs } from "@mysten/sui/bcs";
 import { SUI_FRAMEWORK_ADDRESS, deriveDynamicFieldID, deriveObjectID, normalizeStructTag } from "@mysten/sui/utils";
 import { ristretto255 } from "@noble/curves/ed25519.js";
@@ -93,6 +93,16 @@ function buildDdhProof(packageId, proof) {
 		]) }
 	});
 }
+/**
+* Serialize a `BatchedDdhNizk` into an on-chain `BatchedDdhProof`. The byte layout is the per-pair
+* Schnorr commitments followed by the trailing scalar response `z`, matching `decode::batched_ddh_proof`.
+*/
+function buildBatchedDdhProof(packageId, proof) {
+	return batchedDdhProof({
+		package: packageId,
+		arguments: { parts: elemParts([...proof.commitments.map((c) => c.toBytes()), numberToBytesLE(proof.z, 32)]) }
+	});
+}
 /** Serialize an `ElGamalNizk` consistency proof into an on-chain `ElGamalProof`. */
 function buildElGamalProof(packageId, proof) {
 	return elgamalProof({
@@ -118,7 +128,7 @@ function buildEncryptedAmount(packageId, limbs) {
 }
 /**
 * Maximum number of amounts a single Bulletproof chunk can cover. Sui's
-* `rangeproofs::verify_bulletproofs_ristretto255` caps the aggregated commitment count at 32 for
+* `rangeproofs::verify_bulletproofs_with_dst_ristretto255` caps the aggregated commitment count at 32 for
 * 16-bit range proofs, and each amount contributes 4 limb commitments, so a chunk holds at most
 * `32 / 4 = 8` amounts. Mirrors `MAX_BATCH_SIZE` in `encrypted_amount.move`.
 */
@@ -131,9 +141,12 @@ const MAX_BATCH_SIZE = 8;
 * (e.g. N=7 → [4, 2, 1]; N=20 → [8, 8, 4]). The on-chain verifier reconstructs the same partition
 * from N, so no explicit sizes vector needs to be carried. The pk isn't stored in the proof; the
 * consumer supplies a parallel `vector<Element<G>>` to `verify`, so callers must hand pks
-* separately to whichever Move entry verifies the proof.
+* separately to whichever Move entry verifies the proof. `rangeDst` is the domain-separation tag
+* bound into the Bulletproof transcript; it must equal the `range_dst` the Move entry passes to
+* `encrypted_amount::verify` (the `DST_RANGE_PROOF` tag) — distinct from the `DST_ELGAMAL` tag the
+* per-limb consistency proofs in `batch` were generated under.
 */
-function buildWellFormedProof(batchRangeProver, packageId, batch) {
+function buildWellFormedProof(batchRangeProver, rangeDst, packageId, batch) {
 	const rangeProofs = [];
 	let offset = 0;
 	let remaining = batch.length;
@@ -141,7 +154,7 @@ function buildWellFormedProof(batchRangeProver, packageId, batch) {
 	while (remaining > 0) {
 		while (remaining >= chunkSize) {
 			const chunk = batch.slice(offset, offset + chunkSize);
-			rangeProofs.push(Array.from(batchRangeProver(chunk.flatMap((amount) => amount.map((l) => l.value)), chunk.flatMap((amount) => amount.map((l) => l.blinding)), 16).proof));
+			rangeProofs.push(Array.from(batchRangeProver(chunk.flatMap((amount) => amount.map((l) => l.value)), chunk.flatMap((amount) => amount.map((l) => l.blinding)), 16, rangeDst).proof));
 			offset += chunkSize;
 			remaining -= chunkSize;
 		}
@@ -174,10 +187,10 @@ function buildWellFormedProof(batchRangeProver, packageId, batch) {
 * `batched_transfer`. Takes `tx` directly rather than returning a `(tx) => ...` thunk because
 * `tx.add` only accepts thunks that return a single `TransactionResult`.
 */
-function buildEncryptedAmountAndProof(batchRangeProver, tx, packageId, limbs) {
+function buildEncryptedAmountAndProof(batchRangeProver, rangeDst, tx, packageId, limbs) {
 	return {
 		encryptedAmount: tx.add(buildEncryptedAmount(packageId, limbs.map((l) => l.ciphertext))),
-		wellFormedProof: tx.add(buildWellFormedProof(batchRangeProver, packageId, [limbs]))
+		wellFormedProof: tx.add(buildWellFormedProof(batchRangeProver, rangeDst, packageId, [limbs]))
 	};
 }
 /**
@@ -250,4 +263,4 @@ function buildKeyConsistencyProof(packageId, proof) {
 	});
 }
 //#endregion
-export { buildDdhProof, buildElGamalProof, buildEncryptedAmount, buildEncryptedAmountAndProof, buildGVector, buildKeyEncryptionOption, buildWellFormedProof, dst, fiatShamirChallenge, getAccountId, getConfidentialTokenId, getTokenAccountId, newSessionId, point };
+export { buildBatchedDdhProof, buildDdhProof, buildElGamalProof, buildEncryptedAmount, buildEncryptedAmountAndProof, buildGVector, buildKeyEncryptionOption, buildWellFormedProof, dst, fiatShamirChallenge, getAccountId, getConfidentialTokenId, getTokenAccountId, newSessionId, point };
